@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>支付下单</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <h1>支付下单</h1>
+            <p>创建订单并获取平台支付链接</p>
+          </div>
+          <div class="status-pill" id="backendStatus">后端：localhost:8080</div>
+        </header>
+
+        <div class="content-grid">
+          <form class="pay-form" id="payForm">
+            <div class="form-row two-col">
+              <label>
+                支付金额
+                <input id="totalAmount" name="totalAmount" type="number" min="0.01" step="0.01" value="0.10" required />
+              </label>
+              <label>
+                支付类型
+                <select id="typeIndex" name="typeIndex">
+                  <option value="2">电脑网站</option>
+                  <option value="1">手机网站</option>
+                  <option value="3">应用内支付</option>
+                  <option value="4">小程序</option>
+                  <option value="5">公众号</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              订单标题
+              <input id="subject" name="subject" type="text" value="测试商品" required />
+            </label>
+
+            <div class="form-row two-col">
+              <label>
+                支付方式
+                <select id="payMethodType" name="payMethodType">
+                  <option value="ALIPAY_CN">支付宝</option>
+                  <option value="ALIPAY">国际支付宝</option>
+                  <option value="WECHATPAY">微信支付</option>
+                  <option value="CARD">银行卡</option>
+                </select>
+              </label>
+              <label>
+                后端接口地址
+                <input id="backendBaseUrl" name="backendBaseUrl" type="url" value="http://localhost:8080" required />
+              </label>
+            </div>
+
+            <label>
+              支付成功跳转地址
+              <input id="returnUrl" name="returnUrl" type="url" value="https://example.com/pay/success" />
+            </label>
+
+            <button class="primary-button" id="submitButton" type="submit">创建支付订单</button>
+          </form>
+
+          <aside class="result-panel">
+            <div class="result-header">
+              <h2>支付结果</h2>
+              <span id="requestState">待创建</span>
+            </div>
+
+            <div class="result-empty" id="emptyState">
+              <strong>等待下单</strong>
+              <span>支付链接会显示在这里</span>
+            </div>
+
+            <div class="result-content hidden" id="resultContent">
+              <label>
+                支付链接
+                <textarea id="payUrl" rows="4" readonly></textarea>
+              </label>
+              <div class="action-row">
+                <button class="secondary-button" id="copyPayUrl" type="button">复制链接</button>
+                <a class="primary-link" id="openPayUrl" href="#" target="_blank" rel="noreferrer">打开支付页</a>
+              </div>
+
+              <dl class="meta-list">
+                <div>
+                  <dt>商户订单号</dt>
+                  <dd id="orderNoResult">-</dd>
+                </div>
+                <div>
+                  <dt>本地状态</dt>
+                  <dd id="localStatus">-</dd>
+                </div>
+                <div>
+                  <dt>平台订单号</dt>
+                  <dd id="platTradeNo">-</dd>
+                </div>
+                <div>
+                  <dt>唤起方式</dt>
+                  <dd id="evokeMode">-</dd>
+                </div>
+              </dl>
+
+              <details>
+                <summary>平台原始响应</summary>
+                <pre id="rawResponse"></pre>
+              </details>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

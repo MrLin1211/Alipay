@@ -1,0 +1,12 @@
+target/
+backend/target/
+backend/data/
+frontend/node_modules/
+frontend/dist/
+admin/node_modules/
+admin/dist/
+.idea/
+*.iml
+.DS_Store
+.env
+ios/
