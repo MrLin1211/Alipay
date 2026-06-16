@@ -8,7 +8,7 @@
   </head>
   <body>
     <main class="app-shell">
-      <section class="workspace">
+      <section class="workspace" id="orderPage">
         <header class="topbar">
           <div>
             <h1>支付下单</h1>
@@ -112,6 +112,59 @@
             </div>
           </aside>
         </div>
+      </section>
+
+      <section class="workspace hidden" id="payResultPage">
+        <header class="topbar">
+          <div>
+            <h1>支付结果</h1>
+            <p>根据商户订单号查询当前支付状态</p>
+          </div>
+          <div class="status-pill" id="resultBackendStatus">后端：localhost:8080</div>
+        </header>
+
+        <section class="result-page-panel">
+          <div class="result-state" id="payResultState" data-state="processing">
+            <div class="result-state-icon" id="payResultIcon">...</div>
+            <div>
+              <h2 id="payResultTitle">正在查询支付结果</h2>
+              <p id="payResultDesc">如果你已经完成支付，系统会自动刷新订单状态。</p>
+            </div>
+          </div>
+
+          <dl class="meta-list result-meta">
+            <div>
+              <dt>商户订单号</dt>
+              <dd id="resultOrderNo">-</dd>
+            </div>
+            <div>
+              <dt>支付状态</dt>
+              <dd id="resultStatus">-</dd>
+            </div>
+            <div>
+              <dt>平台订单号</dt>
+              <dd id="resultPlatTradeNo">-</dd>
+            </div>
+            <div>
+              <dt>订单金额</dt>
+              <dd id="resultAmount">-</dd>
+            </div>
+            <div>
+              <dt>更新时间</dt>
+              <dd id="resultUpdatedAt">-</dd>
+            </div>
+          </dl>
+
+          <div class="action-row">
+            <button class="primary-button" id="refreshResult" type="button">刷新状态</button>
+            <a class="primary-link" href="/" id="backToOrder">返回下单</a>
+          </div>
+
+          <details>
+            <summary>订单详情</summary>
+            <pre id="resultRawResponse"></pre>
+          </details>
+        </section>
       </section>
     </main>
 

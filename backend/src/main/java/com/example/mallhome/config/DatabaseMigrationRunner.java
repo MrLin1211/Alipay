@@ -12,10 +12,12 @@ import java.util.Map;
 public class DatabaseMigrationRunner implements ApplicationRunner {
 
     private final JdbcTemplate jdbcTemplate;
+    private final MallhomePayProperties payProperties;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    public DatabaseMigrationRunner(JdbcTemplate jdbcTemplate) {
+    public DatabaseMigrationRunner(JdbcTemplate jdbcTemplate, MallhomePayProperties payProperties) {
         this.jdbcTemplate = jdbcTemplate;
+        this.payProperties = payProperties;
     }
 
     @Override
@@ -25,6 +27,8 @@ public class DatabaseMigrationRunner implements ApplicationRunner {
         ensureAdminTables();
         ensureDefaultAdminUser();
         ensurePaymentRefundTable();
+        ensurePayRuntimeConfigTable();
+        ensureDefaultPayRuntimeConfig();
         migratePaymentOrderSuccessStatus();
         ensureDatabaseComments();
     }
@@ -155,6 +159,54 @@ public class DatabaseMigrationRunner implements ApplicationRunner {
                 """);
     }
 
+    private void ensurePayRuntimeConfigTable() {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS pay_runtime_config (
+                    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    pay_channel VARCHAR(32) NOT NULL,
+                    mallhome_host VARCHAR(256) NOT NULL,
+                    external_id VARCHAR(64) NOT NULL,
+                    notify_url VARCHAR(512) NOT NULL,
+                    return_url VARCHAR(512),
+                    default_pay_method_type VARCHAR(32) NOT NULL,
+                    gateway_host VARCHAR(256) NOT NULL,
+                    gateway_app_id VARCHAR(128) NOT NULL,
+                    gateway_app_secret VARCHAR(256) NOT NULL,
+                    gateway_return_url VARCHAR(512),
+                    gateway_business_notify_url VARCHAR(512),
+                    created_at TIMESTAMP NOT NULL,
+                    updated_at TIMESTAMP NOT NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+                """);
+    }
+
+    private void ensureDefaultPayRuntimeConfig() {
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM pay_runtime_config", Integer.class);
+        if (count != null && count > 0) {
+            return;
+        }
+        jdbcTemplate.update(
+                """
+                        INSERT INTO pay_runtime_config (
+                            pay_channel, mallhome_host, external_id, notify_url, return_url,
+                            default_pay_method_type, gateway_host, gateway_app_id, gateway_app_secret,
+                            gateway_return_url, gateway_business_notify_url, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                        """,
+                "MALLHOME",
+                payProperties.getHost(),
+                payProperties.getExternalId(),
+                payProperties.getNotifyUrl(),
+                payProperties.getReturnUrl(),
+                payProperties.getDefaultPayMethodType(),
+                payProperties.getGatewayHost(),
+                payProperties.getGatewayAppId(),
+                payProperties.getGatewayAppSecret(),
+                payProperties.getReturnUrl(),
+                payProperties.getNotifyUrl()
+        );
+    }
+
     private void migratePaymentOrderSuccessStatus() {
         // 本地订单成功状态由 PAID 统一调整为 SUCCESS，兼容已有历史订单。
         jdbcTemplate.update("UPDATE payment_order SET status = 'SUCCESS' WHERE status = 'PAID'");
@@ -219,6 +271,24 @@ public class DatabaseMigrationRunner implements ApplicationRunner {
                 {"trade_status", "平台退款交易状态：保存平台返回的原始枚举值"},
                 {"platform_response", "平台退款原始响应"},
                 {"created_by", "提交退款的管理员账号"}, {"created_at", "创建时间"},
+                {"updated_at", "更新时间"}
+        });
+
+        jdbcTemplate.execute("ALTER TABLE pay_runtime_config COMMENT = '支付运行时配置表'");
+        applyColumnComments("pay_runtime_config", new String[][]{
+                {"id", "主键ID"},
+                {"pay_channel", "支付通道：MALLHOME=原Mallhome平台，PAYMENT_GATEWAY=自建支付网关"},
+                {"mallhome_host", "Mallhome平台接口地址"},
+                {"external_id", "Mallhome平台商户号"},
+                {"notify_url", "Mallhome支付通知地址"},
+                {"return_url", "Mallhome同步跳转地址"},
+                {"default_pay_method_type", "Mallhome默认支付方式：ALIPAY_CN=支付宝，ALIPAY=国际支付宝，WECHATPAY=微信支付，CARD=银行卡"},
+                {"gateway_host", "自建支付网关地址"},
+                {"gateway_app_id", "自建支付网关接入应用AppId"},
+                {"gateway_app_secret", "自建支付网关接入应用AppSecret"},
+                {"gateway_return_url", "自建支付网关同步跳转地址"},
+                {"gateway_business_notify_url", "自建支付网关回调业务系统地址"},
+                {"created_at", "创建时间"},
                 {"updated_at", "更新时间"}
         });
     }

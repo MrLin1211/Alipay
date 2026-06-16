@@ -5,6 +5,8 @@
 ```text
 .
 ├── backend/   # Spring Boot 后端项目
+├── payment-gateway/ # 独立支付网关服务
+├── payment-gateway-admin/ # 支付网关管理后台
 ├── frontend/  # 原生 HTML/CSS/JS 前端项目
 ├── admin/     # 支付管理后台
 ├── ios/       # iOS SwiftUI App
@@ -12,6 +14,10 @@
 ```
 
 后端说明见：[backend/README.md](backend/README.md)
+
+支付网关说明见：[payment-gateway/README.md](payment-gateway/README.md)
+
+支付网关后台说明见：[payment-gateway-admin/README.md](payment-gateway-admin/README.md)
 
 本地前后端启动命令见：[docs/start-services.md](docs/start-services.md)
 
@@ -38,6 +44,15 @@ npm run dev
 ```
 
 后台说明见：[admin/README.md](admin/README.md)
+
+## 支付网关后台
+
+```bash
+cd payment-gateway-admin
+npm run dev
+```
+
+默认地址：`http://127.0.0.1:5175`
 
 ## iOS App
 

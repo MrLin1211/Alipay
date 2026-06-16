@@ -27,6 +27,12 @@ public class MallhomePayProperties {
 
     private String defaultPayMethodType = "ALIPAY_CN";
 
+    private String gatewayHost = "http://127.0.0.1:8090";
+
+    private String gatewayAppId = "biz-demo";
+
+    private String gatewayAppSecret = "demo-secret-change-me";
+
     public String getHost() {
         return host;
     }
@@ -81,6 +87,30 @@ public class MallhomePayProperties {
 
     public void setDefaultPayMethodType(String defaultPayMethodType) {
         this.defaultPayMethodType = defaultPayMethodType;
+    }
+
+    public String getGatewayHost() {
+        return gatewayHost;
+    }
+
+    public void setGatewayHost(String gatewayHost) {
+        this.gatewayHost = trimTrailingSlash(gatewayHost);
+    }
+
+    public String getGatewayAppId() {
+        return gatewayAppId;
+    }
+
+    public void setGatewayAppId(String gatewayAppId) {
+        this.gatewayAppId = gatewayAppId;
+    }
+
+    public String getGatewayAppSecret() {
+        return gatewayAppSecret;
+    }
+
+    public void setGatewayAppSecret(String gatewayAppSecret) {
+        this.gatewayAppSecret = gatewayAppSecret;
     }
 
     private static String trimTrailingSlash(String value) {

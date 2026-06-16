@@ -16,22 +16,26 @@ import java.util.TreeMap;
 public class MallhomePayClient {
 
     private final MallhomePayProperties properties;
-    private final RestClient restClient;
+    private final RestClient.Builder builder;
 
     public MallhomePayClient(MallhomePayProperties properties, RestClient.Builder builder) {
         this.properties = properties;
-        this.restClient = builder.baseUrl(properties.getHost()).build();
+        this.builder = builder;
     }
 
     public String operPay(Map<String, String> paramsWithoutSign) {
-        return postForm("/api/pay/operPay", paramsWithoutSign);
+        return postForm(properties.getHost(), "/api/pay/operPay", paramsWithoutSign);
+    }
+
+    public String operPay(String host, Map<String, String> paramsWithoutSign) {
+        return postForm(host, "/api/pay/operPay", paramsWithoutSign);
     }
 
     public String tradeRefund(Map<String, String> paramsWithoutSign) {
-        return postForm("/api/pay/tradeRefund", paramsWithoutSign);
+        return postForm(properties.getHost(), "/api/pay/tradeRefund", paramsWithoutSign);
     }
 
-    private String postForm(String path, Map<String, String> paramsWithoutSign) {
+    private String postForm(String host, String path, Map<String, String> paramsWithoutSign) {
         // 平台接口要求秒级时间戳，并用 timeStamp + 密钥生成 visitAuth。
         String timeStamp = String.valueOf(Instant.now().getEpochSecond());
         String visitAuth = MallhomeSignUtils.buildVisitAuth(
@@ -45,7 +49,7 @@ public class MallhomePayClient {
         signedParams.put("sign", MallhomeSignUtils.buildSign(signedParams, visitAuth, properties.getAesKey()));
 
         // 平台文档要求 application/x-www-form-urlencoded，不能用 JSON 直传。
-        return restClient.post()
+        return builder.baseUrl(host).build().post()
                 .uri(path)
                 .header("timeStamp", timeStamp)
                 .header("visitAuth", visitAuth)

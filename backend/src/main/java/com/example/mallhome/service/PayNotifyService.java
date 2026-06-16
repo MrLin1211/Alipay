@@ -3,11 +3,13 @@ package com.example.mallhome.service;
 import com.example.mallhome.config.MallhomePayProperties;
 import com.example.mallhome.domain.PayNotifyResult;
 import com.example.mallhome.domain.PaymentOrderStatus;
+import com.example.mallhome.domain.PayRuntimeConfig;
 import com.example.mallhome.entity.PaymentNotifyRecord;
 import com.example.mallhome.entity.PaymentOrder;
 import com.example.mallhome.repository.PaymentNotifyRecordRepository;
 import com.example.mallhome.repository.PaymentOrderRepository;
 import com.example.mallhome.util.JsonUtils;
+import com.example.mallhome.util.HmacUtils;
 import com.example.mallhome.util.MallhomeSignUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.slf4j.Logger;
@@ -30,15 +32,18 @@ public class PayNotifyService {
     private final MallhomePayProperties properties;
     private final PaymentOrderRepository paymentOrderRepository;
     private final PaymentNotifyRecordRepository notifyRecordRepository;
+    private final PayRuntimeConfigService runtimeConfigService;
 
     public PayNotifyService(
             MallhomePayProperties properties,
             PaymentOrderRepository paymentOrderRepository,
-            PaymentNotifyRecordRepository notifyRecordRepository
+            PaymentNotifyRecordRepository notifyRecordRepository,
+            PayRuntimeConfigService runtimeConfigService
     ) {
         this.properties = properties;
         this.paymentOrderRepository = paymentOrderRepository;
         this.notifyRecordRepository = notifyRecordRepository;
+        this.runtimeConfigService = runtimeConfigService;
     }
 
     @Transactional
@@ -107,6 +112,73 @@ public class PayNotifyService {
         return PayNotifyResult.success();
     }
 
+    @Transactional
+    public PayNotifyResult handleGatewayNotify(
+            String appId,
+            String timestamp,
+            String nonce,
+            String signature,
+            String body
+    ) {
+        Map<String, Object> payload;
+        try {
+            payload = JsonUtils.toMap(body);
+        } catch (Exception exception) {
+            return PayNotifyResult.fail("invalid gateway notify body");
+        }
+
+        Map<String, String> notifyParams = gatewayPayloadToNotifyParams(payload);
+        if (!StringUtils.hasText(appId)
+                || !StringUtils.hasText(timestamp)
+                || !StringUtils.hasText(nonce)
+                || !StringUtils.hasText(signature)) {
+            return failNotify(notifyParams, false, "missing gateway auth headers");
+        }
+
+        PayRuntimeConfig config = runtimeConfigService.getConfig();
+        if (!config.getGatewayAppId().equals(appId)) {
+            return failNotify(notifyParams, false, "gateway appId mismatch");
+        }
+
+        String signText = "POST\n/api/server/gateway/pay/notify\n" + timestamp + "\n" + nonce + "\n" + body;
+        String expected = HmacUtils.hmacSha256Base64(config.getGatewayAppSecret(), signText);
+        if (!expected.equals(signature)) {
+            return failNotify(notifyParams, false, "invalid gateway signature");
+        }
+
+        String orderNo = notifyParams.get("merchantTradeNo");
+        String notifyKey = buildNotifyKey(notifyParams);
+        if (notifyRecordRepository.existsByNotifyKey(notifyKey)) {
+            log.info("duplicate gateway payment notify ignored: {}", notifyKey);
+            return PayNotifyResult.success();
+        }
+
+        PaymentOrder order = paymentOrderRepository.findWithLockByOrderNo(orderNo).orElse(null);
+        if (order == null) {
+            return failNotify(notifyParams, true, "local order not found: " + orderNo);
+        }
+        if (notifyRecordRepository.existsByNotifyKey(notifyKey)) {
+            log.info("duplicate gateway payment notify ignored after order lock: {}", notifyKey);
+            return PayNotifyResult.success();
+        }
+
+        String incomingStatus = PaymentOrderStatus.fromTradeStatus(notifyParams.get("tradeStatus"));
+        if (canApplyStatus(order.getStatus(), incomingStatus)) {
+            order.setTradeStatus(notifyParams.get("tradeStatus"));
+            order.setStatus(incomingStatus);
+            order.setPlatTradeNo(firstNonBlank(notifyParams.get("platformOutTradeNo"), order.getPlatTradeNo()));
+            order.setThirdOutTradeNo(notifyParams.get("thirdOutTradeNo"));
+            order.setNotifyPayload(JsonUtils.toJson(new TreeMap<>(notifyParams)));
+            if (PaymentOrderStatus.SUCCESS.equals(incomingStatus)) {
+                order.setPaidAt(LocalDateTime.now());
+            }
+            paymentOrderRepository.save(order);
+        }
+
+        saveNotifyRecord(notifyParams, true, "SUCCESS", null);
+        return PayNotifyResult.success();
+    }
+
     private PayNotifyResult failNotify(Map<String, String> notifyParams, boolean verified, String reason) {
         saveNotifyRecord(notifyParams, verified, "FAIL", reason);
         return PayNotifyResult.fail(reason);
@@ -160,6 +232,22 @@ public class PayNotifyService {
                 + firstNonBlank(notifyParams.get("platformOutTradeNo"), "-")
                 + "|"
                 + firstNonBlank(notifyParams.get("tradeStatus"), "-");
+    }
+
+    private static Map<String, String> gatewayPayloadToNotifyParams(Map<String, Object> payload) {
+        Map<String, String> params = new TreeMap<>();
+        params.put("merchantTradeNo", string(payload.get("merchantOrderNo")));
+        params.put("externalId", string(payload.get("appId")));
+        params.put("tradeStatus", string(payload.get("tradeStatus")));
+        params.put("platformOutTradeNo", string(payload.get("gatewayOrderNo")));
+        params.put("thirdOutTradeNo", string(payload.get("alipayTradeNo")));
+        params.put("gatewayStatus", string(payload.get("status")));
+        params.put("notifyPayload", string(payload.get("notifyPayload")));
+        return params;
+    }
+
+    private static String string(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
     private static Map<String, String> maskSensitive(Map<String, String> params) {

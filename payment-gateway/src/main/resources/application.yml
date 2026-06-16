@@ -1,0 +1,23 @@
+server:
+  port: ${PAYMENT_GATEWAY_PORT:8090}
+
+spring:
+  application:
+    name: payment-gateway
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  datasource:
+    url: ${GATEWAY_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/payment_gateway?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${GATEWAY_DATASOURCE_USERNAME:alipay_user}
+    password: ${GATEWAY_DATASOURCE_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+gateway:
+  admin:
+    default-username: ${GATEWAY_ADMIN_USERNAME:admin}
+    default-password: ${GATEWAY_ADMIN_PASSWORD:admin123456}
+  demo-app:
+    enabled: ${GATEWAY_DEMO_APP_ENABLED:true}
+    app-id: ${GATEWAY_DEMO_APP_ID:biz-demo}
+    app-secret: ${GATEWAY_DEMO_APP_SECRET:demo-secret-change-me}

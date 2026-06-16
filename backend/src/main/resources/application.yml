@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: mallhome-pay-backend
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/alipay_pay?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${SPRING_DATASOURCE_USERNAME:alipay_user}
@@ -26,3 +29,6 @@ mallhome:
     notify-url: ${MALLHOME_NOTIFY_URL:https://www.example.com/pay/notify}
     return-url: ${MALLHOME_RETURN_URL:https://www.example.com/pay/success}
     default-pay-method-type: ${MALLHOME_PAY_METHOD_TYPE:ALIPAY_CN}
+    gateway-host: ${PAYMENT_GATEWAY_HOST:http://127.0.0.1:8090}
+    gateway-app-id: ${PAYMENT_GATEWAY_APP_ID:biz-demo}
+    gateway-app-secret: ${PAYMENT_GATEWAY_APP_SECRET:demo-secret-change-me}

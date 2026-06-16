@@ -1,9 +1,12 @@
 package com.example.mallhome.service;
 
 import com.example.mallhome.client.MallhomePayClient;
+import com.example.mallhome.client.PaymentGatewayClient;
 import com.example.mallhome.config.MallhomePayProperties;
 import com.example.mallhome.domain.CreatePayOrderRequest;
 import com.example.mallhome.domain.CreatePayOrderResponse;
+import com.example.mallhome.domain.PayChannel;
+import com.example.mallhome.domain.PayRuntimeConfig;
 import com.example.mallhome.domain.PaymentOrderStatus;
 import com.example.mallhome.entity.PaymentOrder;
 import com.example.mallhome.repository.PaymentOrderRepository;
@@ -27,6 +30,8 @@ public class PayOrderService {
 
     private final MallhomePayProperties properties;
     private final MallhomePayClient payClient;
+    private final PaymentGatewayClient gatewayClient;
+    private final PayRuntimeConfigService runtimeConfigService;
     private final PaymentOrderRepository paymentOrderRepository;
     private static final DateTimeFormatter ORDER_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
     private static final int ORDER_CREATE_MAX_RETRY = 5;
@@ -34,37 +39,55 @@ public class PayOrderService {
     public PayOrderService(
             MallhomePayProperties properties,
             MallhomePayClient payClient,
+            PaymentGatewayClient gatewayClient,
+            PayRuntimeConfigService runtimeConfigService,
             PaymentOrderRepository paymentOrderRepository
     ) {
         this.properties = properties;
         this.payClient = payClient;
+        this.gatewayClient = gatewayClient;
+        this.runtimeConfigService = runtimeConfigService;
         this.paymentOrderRepository = paymentOrderRepository;
     }
 
     public CreatePayOrderResponse createPayOrder(CreatePayOrderRequest request, HttpServletRequest servletRequest) {
+        PayRuntimeConfig config = runtimeConfigService.getConfig();
         String clientIp = ClientIpUtils.resolveClientIp(servletRequest);
-        PaymentOrder order = createAndSaveLocalOrder(request, clientIp);
+        PaymentOrder order = createAndSaveLocalOrder(request, clientIp, config);
         String orderNo = order.getOrderNo();
 
+        if (PayChannel.PAYMENT_GATEWAY.equals(config.getPayChannel())) {
+            return createGatewayPayOrder(request, servletRequest, config, order);
+        }
+        return createMallhomePayOrder(request, config, order, orderNo, clientIp);
+    }
+
+    private CreatePayOrderResponse createMallhomePayOrder(
+            CreatePayOrderRequest request,
+            PayRuntimeConfig config,
+            PaymentOrder order,
+            String orderNo,
+            String clientIp
+    ) {
         // 组装平台支付接口要求的表单参数，字段名需要和接口文档保持一致。
         Map<String, String> params = new TreeMap<>();
         params.put("merTradeNo", orderNo);
         params.put("typeIndex", String.valueOf(request.getTypeIndex()));
-        params.put("externalId", properties.getExternalId());
+        params.put("externalId", config.getExternalId());
         params.put("totalAmount", request.getTotalAmount().setScale(2, RoundingMode.HALF_UP).toPlainString());
         params.put("merSubject", request.getSubject());
         params.put("goodsType", String.valueOf(request.getGoodsType()));
-        params.put("merPayNotifyUrl", properties.getNotifyUrl());
+        params.put("merPayNotifyUrl", config.getNotifyUrl());
         params.put("clientIp", clientIp);
-        params.put("payMethodType", firstNonBlank(request.getPayMethodType(), properties.getDefaultPayMethodType()));
+        params.put("payMethodType", firstNonBlank(request.getPayMethodType(), config.getDefaultPayMethodType()));
 
         putIfHasText(params, "attachInfo", request.getAttachInfo());
         putIfHasText(params, "quitUrl", request.getQuitUrl());
-        putIfHasText(params, "returnUrl", firstNonBlank(request.getReturnUrl(), properties.getReturnUrl()));
+        putIfHasText(params, "returnUrl", firstNonBlank(request.getReturnUrl(), config.getReturnUrl()));
         putIfHasText(params, "subExternalId", request.getSubExternalId());
 
         try {
-            String rawResponse = payClient.operPay(params);
+            String rawResponse = payClient.operPay(config.getHost(), params);
             // 平台创建成功后，把 payUrl、平台单号等关键信息回写到本地订单表。
             applyCreateResponse(order, rawResponse);
             paymentOrderRepository.save(order);
@@ -85,10 +108,48 @@ public class PayOrderService {
         }
     }
 
-    private PaymentOrder createAndSaveLocalOrder(CreatePayOrderRequest request, String clientIp) {
+    private CreatePayOrderResponse createGatewayPayOrder(
+            CreatePayOrderRequest request,
+            HttpServletRequest servletRequest,
+            PayRuntimeConfig config,
+            PaymentOrder order
+    ) {
+        Map<String, Object> payload = new TreeMap<>();
+        payload.put("merchantOrderNo", order.getOrderNo());
+        payload.put("subject", request.getSubject());
+        payload.put("totalAmount", request.getTotalAmount().setScale(2, RoundingMode.HALF_UP));
+        payload.put("returnUrl", firstNonBlank(request.getReturnUrl(), config.getGatewayReturnUrl()));
+        putIfHasTextObject(payload, "businessNotifyUrl", config.getGatewayBusinessNotifyUrl());
+
+        try {
+            String gatewayRawResponse = gatewayClient.createWapPay(
+                    config.getGatewayHost(),
+                    config.getGatewayAppId(),
+                    config.getGatewayAppSecret(),
+                    payload
+            );
+            applyGatewayCreateResponse(order, gatewayRawResponse, buildPayPageUrl(servletRequest, order.getOrderNo()));
+            paymentOrderRepository.save(order);
+            return new CreatePayOrderResponse(
+                    order.getId(),
+                    order.getOrderNo(),
+                    order.getStatus(),
+                    order.getPayUrl(),
+                    order.getPlatTradeNo(),
+                    order.getPlatformCreateResponse()
+            );
+        } catch (RuntimeException exception) {
+            order.setStatus(PaymentOrderStatus.CREATE_FAILED);
+            order.setPlatformCreateResponse(exception.getMessage());
+            paymentOrderRepository.save(order);
+            throw exception;
+        }
+    }
+
+    private PaymentOrder createAndSaveLocalOrder(CreatePayOrderRequest request, String clientIp, PayRuntimeConfig config) {
         for (int i = 0; i < ORDER_CREATE_MAX_RETRY; i++) {
             String orderNo = generateOrderNo();
-            PaymentOrder order = createLocalOrder(request, orderNo, clientIp);
+            PaymentOrder order = createLocalOrder(request, orderNo, clientIp, config);
             try {
                 // 先保存本地订单，再调用平台。数据库唯一键兜底订单号并发撞号。
                 return paymentOrderRepository.saveAndFlush(order);
@@ -101,18 +162,23 @@ public class PayOrderService {
         throw new IllegalStateException("商户订单号生成失败，请重试");
     }
 
-    private PaymentOrder createLocalOrder(CreatePayOrderRequest request, String orderNo, String clientIp) {
+    private PaymentOrder createLocalOrder(CreatePayOrderRequest request, String orderNo, String clientIp, PayRuntimeConfig config) {
         PaymentOrder order = new PaymentOrder();
         order.setOrderNo(orderNo);
-        order.setExternalId(properties.getExternalId());
+        order.setExternalId(PayChannel.PAYMENT_GATEWAY.equals(config.getPayChannel())
+                ? config.getGatewayAppId()
+                : config.getExternalId());
         order.setTotalAmount(request.getTotalAmount().setScale(2, RoundingMode.HALF_UP));
         order.setSubject(request.getSubject());
         order.setClientIp(clientIp);
         order.setTypeIndex(request.getTypeIndex());
         order.setGoodsType(request.getGoodsType());
-        order.setPayMethodType(firstNonBlank(request.getPayMethodType(), properties.getDefaultPayMethodType()));
+        order.setPayMethodType(firstNonBlank(request.getPayMethodType(), config.getDefaultPayMethodType()));
         order.setAttachInfo(request.getAttachInfo());
-        order.setReturnUrl(firstNonBlank(request.getReturnUrl(), properties.getReturnUrl()));
+        order.setReturnUrl(firstNonBlank(
+                request.getReturnUrl(),
+                PayChannel.PAYMENT_GATEWAY.equals(config.getPayChannel()) ? config.getGatewayReturnUrl() : config.getReturnUrl()
+        ));
         order.setQuitUrl(request.getQuitUrl());
         order.setSubExternalId(request.getSubExternalId());
         order.setStatus(PaymentOrderStatus.CREATED);
@@ -148,10 +214,62 @@ public class PayOrderService {
         order.setStatus(PaymentOrderStatus.CREATE_SUCCESS);
     }
 
+    private void applyGatewayCreateResponse(PaymentOrder order, String gatewayRawResponse, String payPageUrl) {
+        JsonNode root = JsonUtils.readTree(gatewayRawResponse);
+        if (root.path("code").asInt(-1) != 0) {
+            order.setPlatformCreateResponse(gatewayRawResponse);
+            order.setStatus(PaymentOrderStatus.CREATE_FAILED);
+            return;
+        }
+
+        JsonNode data = root.path("data");
+        String gatewayOrderNo = data.path("gatewayOrderNo").asText(null);
+        order.setPayUrl(payPageUrl);
+        order.setEvokeMode("1");
+        order.setPlatTradeNo(gatewayOrderNo);
+        order.setStatus(PaymentOrderStatus.CREATE_SUCCESS);
+
+        Map<String, Object> compatibleResponse = new TreeMap<>();
+        compatibleResponse.put("code", 0);
+        compatibleResponse.put("msg", "success");
+        compatibleResponse.put("gatewayResponse", JsonUtils.toMap(gatewayRawResponse));
+        compatibleResponse.put("data", Map.of("data", Map.of(
+                "payUrl", payPageUrl,
+                "evokeMode", "1",
+                "platTradeNo", gatewayOrderNo == null ? "" : gatewayOrderNo,
+                "payForm", data.path("payForm").asText("")
+        )));
+        order.setPlatformCreateResponse(JsonUtils.toJson(compatibleResponse));
+    }
+
     private static void putIfHasText(Map<String, String> params, String key, String value) {
         if (StringUtils.hasText(value)) {
             params.put(key, value);
         }
+    }
+
+    private static void putIfHasTextObject(Map<String, Object> params, String key, String value) {
+        if (StringUtils.hasText(value)) {
+            params.put(key, value);
+        }
+    }
+
+    private static String buildPayPageUrl(HttpServletRequest request, String orderNo) {
+        String scheme = firstHeader(request, "X-Forwarded-Proto", request.getScheme());
+        String host = firstHeader(request, "X-Forwarded-Host", request.getHeader("Host"));
+        if (!StringUtils.hasText(host)) {
+            host = request.getServerName() + ":" + request.getServerPort();
+        }
+        return scheme + "://" + host + "/api/pay-orders/" + orderNo + "/pay-page";
+    }
+
+    private static String firstHeader(HttpServletRequest request, String header, String fallback) {
+        String value = request.getHeader(header);
+        if (!StringUtils.hasText(value)) {
+            return fallback;
+        }
+        int comma = value.indexOf(',');
+        return comma >= 0 ? value.substring(0, comma).trim() : value.trim();
     }
 
     private static String firstNonBlank(String first, String second) {

@@ -1,5 +1,8 @@
 target/
 backend/target/
+payment-gateway/target/
+payment-gateway-admin/node_modules/
+payment-gateway-admin/dist/
 backend/data/
 frontend/node_modules/
 frontend/dist/

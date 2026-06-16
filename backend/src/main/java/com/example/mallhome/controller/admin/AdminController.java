@@ -8,6 +8,8 @@ import com.example.mallhome.domain.PaymentRefundView;
 import com.example.mallhome.domain.PaymentNotifyRecordView;
 import com.example.mallhome.domain.PaymentOrderDetailView;
 import com.example.mallhome.domain.PaymentOrderView;
+import com.example.mallhome.domain.PayRuntimeConfig;
+import com.example.mallhome.domain.UpdatePayConfigRequest;
 import com.example.mallhome.entity.PaymentNotifyRecord;
 import com.example.mallhome.entity.PaymentOrder;
 import com.example.mallhome.entity.PaymentRefund;
@@ -16,6 +18,7 @@ import com.example.mallhome.repository.PaymentOrderRepository;
 import com.example.mallhome.repository.PaymentRefundRepository;
 import com.example.mallhome.service.AdminAuthService;
 import com.example.mallhome.service.PaymentRefundService;
+import com.example.mallhome.service.PayRuntimeConfigService;
 import jakarta.validation.Valid;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.PageRequest;
@@ -27,6 +30,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,6 +52,7 @@ public class AdminController {
     private final PaymentRefundService refundService;
     private final PaymentRefundRepository refundRepository;
     private final AdminAuthService authService;
+    private final PayRuntimeConfigService runtimeConfigService;
 
     public AdminController(
             PaymentOrderRepository paymentOrderRepository,
@@ -55,7 +60,8 @@ public class AdminController {
             MallhomePayProperties payProperties,
             PaymentRefundService refundService,
             PaymentRefundRepository refundRepository,
-            AdminAuthService authService
+            AdminAuthService authService,
+            PayRuntimeConfigService runtimeConfigService
     ) {
         this.paymentOrderRepository = paymentOrderRepository;
         this.notifyRecordRepository = notifyRecordRepository;
@@ -63,6 +69,7 @@ public class AdminController {
         this.refundService = refundService;
         this.refundRepository = refundRepository;
         this.authService = authService;
+        this.runtimeConfigService = runtimeConfigService;
     }
 
     @GetMapping("/pay-orders")
@@ -156,12 +163,25 @@ public class AdminController {
 
     @GetMapping("/pay-config")
     public PayConfigView getPayConfig() {
+        PayRuntimeConfig config = runtimeConfigService.getMaskedConfig();
         return new PayConfigView(
-                payProperties.getHost(),
-                payProperties.getExternalId(),
-                payProperties.getNotifyUrl(),
-                payProperties.getReturnUrl()
+                config.getPayChannel(),
+                config.getHost(),
+                config.getExternalId(),
+                config.getNotifyUrl(),
+                config.getReturnUrl(),
+                config.getDefaultPayMethodType(),
+                config.getGatewayHost(),
+                config.getGatewayAppId(),
+                config.getGatewayAppSecret(),
+                config.getGatewayReturnUrl(),
+                config.getGatewayBusinessNotifyUrl()
         );
+    }
+
+    @PutMapping("/pay-config")
+    public void savePayConfig(@RequestBody UpdatePayConfigRequest request) {
+        runtimeConfigService.updateConfig(request);
     }
 
     @GetMapping("/pay-notifies")

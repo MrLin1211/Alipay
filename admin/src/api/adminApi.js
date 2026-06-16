@@ -33,6 +33,10 @@ export async function fetchPayConfig() {
   return data;
 }
 
+export async function savePayConfig(payload) {
+  await apiClient().put("/api/admin/pay-config", payload);
+}
+
 export async function fetchNotifies(params) {
   const { data } = await apiClient().get("/api/admin/pay-notifies", { params });
   return data;
