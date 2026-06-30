@@ -1,0 +1,23 @@
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${PAYMENT_GATEWAY_PORT:8090}
+
+app:
+  upload:
+    dir: ${APP_UPLOAD_DIR:/var/www/alipay/uploads}
+
+spring:
+  datasource:
+    url: ${GATEWAY_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/alipay_pay?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${GATEWAY_DATASOURCE_USERNAME:alipay_user}
+    password: ${GATEWAY_DATASOURCE_PASSWORD}
+
+gateway:
+  demo-app:
+    enabled: ${GATEWAY_DEMO_APP_ENABLED:false}
+
+mallhome:
+  datasource:
+    url: ${MALLHOME_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/alipay_pay?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${MALLHOME_DATASOURCE_USERNAME:alipay_user}
+    password: ${MALLHOME_DATASOURCE_PASSWORD}

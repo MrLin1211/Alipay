@@ -14,6 +14,18 @@
             <el-option label="停用" :value="false" />
           </el-select>
         </el-form-item>
+        <el-form-item label="创建时间">
+          <el-date-picker
+            v-model="filters.createdAtRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            value-format="YYYY-MM-DDTHH:mm:ss"
+            :default-time="defaultTime"
+            class="date-range"
+          />
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="search">查询</el-button>
           <el-button :icon="RefreshLeft" @click="resetFilters">重置</el-button>
@@ -105,8 +117,13 @@ const dialogWidth = computed(() => (viewportWidth.value <= 760 ? "calc(100% - 24
 const filters = reactive({
   appId: "",
   appName: "",
-  enabled: ""
+  enabled: "",
+  createdAtRange: []
 });
+const defaultTime = [
+  new Date(2000, 0, 1, 0, 0, 0),
+  new Date(2000, 0, 1, 23, 59, 59)
+];
 const form = reactive({
   id: null,
   appId: "",
@@ -163,7 +180,9 @@ async function load() {
     apps.value = await fetchApps({
       appId: filters.appId || undefined,
       appName: filters.appName || undefined,
-      enabled: filters.enabled === "" ? undefined : filters.enabled
+      enabled: filters.enabled === "" ? undefined : filters.enabled,
+      createdAtStart: filters.createdAtRange?.[0] || undefined,
+      createdAtEnd: filters.createdAtRange?.[1] || undefined
     });
   } catch (error) {
     ElMessage.error(error.message || "加载应用失败");
@@ -180,7 +199,8 @@ function resetFilters() {
   Object.assign(filters, {
     appId: "",
     appName: "",
-    enabled: ""
+    enabled: "",
+    createdAtRange: []
   });
   load();
 }

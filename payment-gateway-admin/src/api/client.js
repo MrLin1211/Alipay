@@ -2,16 +2,25 @@ import axios from "axios";
 
 const TOKEN_KEY = "payment_gateway_admin_token";
 const USER_KEY = "payment_gateway_admin_user";
-const BASE_URL_KEY = "payment_gateway_admin_base_url";
+const DEFAULT_GATEWAY_BASE_URL = "http://127.0.0.1:8090";
+
+function normalizeGatewayBaseUrl(value) {
+  const trimmed = String(value || "").trim().replace(/\/$/, "");
+  if (!trimmed) {
+    return DEFAULT_GATEWAY_BASE_URL;
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return `http://${trimmed}`;
+}
 
 export const gatewayBaseUrl = {
-  value: localStorage.getItem(BASE_URL_KEY) || "http://127.0.0.1:8090"
+  value: normalizeGatewayBaseUrl(import.meta.env.VITE_API_BASE_URL)
 };
 
 export function setGatewayBaseUrl(value) {
-  const nextValue = String(value || "").trim().replace(/\/$/, "");
-  gatewayBaseUrl.value = nextValue || "http://127.0.0.1:8090";
-  localStorage.setItem(BASE_URL_KEY, gatewayBaseUrl.value);
+  gatewayBaseUrl.value = normalizeGatewayBaseUrl(value);
 }
 
 export function apiClient() {
@@ -34,6 +43,9 @@ export function apiClient() {
       if (error.response?.status === 401) {
         clearAdminSession();
         window.dispatchEvent(new CustomEvent("gateway-admin-session-expired"));
+      }
+      if (!error.response) {
+        error.message = `网络连接失败，请检查网关地址：${gatewayBaseUrl.value}`;
       }
       return Promise.reject(error);
     }

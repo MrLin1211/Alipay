@@ -4,18 +4,17 @@
 
 ```text
 .
-├── backend/   # Spring Boot 后端项目
-├── payment-gateway/ # 独立支付网关服务
-├── payment-gateway-admin/ # 支付网关管理后台
-├── frontend/  # 原生 HTML/CSS/JS 前端项目
-├── admin/     # 支付管理后台
+├── mall-api/  # 商城后端，接口前缀 /api/mall/**
+├── merchant-api/ # 商家后台后端，接口前缀 /api/merchant/**
+├── payment-gateway-api/ # 独立支付网关服务
+├── payment-gateway-admin/ # 管理后台
+├── mall/  # 商城
+├── merchant/     # 商家后台
 ├── ios/       # iOS SwiftUI App
 └── README.md  # 项目总说明
 ```
 
-后端说明见：[backend/README.md](backend/README.md)
-
-支付网关说明见：[payment-gateway/README.md](payment-gateway/README.md)
+支付网关说明见：[payment-gateway-api/README.md](payment-gateway-api/README.md)
 
 支付网关后台说明见：[payment-gateway-admin/README.md](payment-gateway-admin/README.md)
 
@@ -24,26 +23,27 @@
 ## 后端启动
 
 ```bash
-sh backend/scripts/run-local.sh
+sh mall-api/scripts/run-local.sh
+sh merchant-api/scripts/run-local.sh
 ```
 
-## 后续前端
+## 商城
 
 ```bash
-cd frontend
+cd mall
 npm run dev
 ```
 
-前端说明见：[frontend/README.md](frontend/README.md)
+前端说明见：[mall/README.md](mall/README.md)
 
-## 管理后台
+## 商家后台
 
 ```bash
-cd admin
+cd merchant
 npm run dev
 ```
 
-后台说明见：[admin/README.md](admin/README.md)
+后台说明见：[merchant/README.md](merchant/README.md)
 
 ## 支付网关后台
 

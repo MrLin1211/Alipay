@@ -138,7 +138,7 @@ http://127.0.0.1:8090/api/gateway/pay/alipay/wap
   "subject": "测试商品",
   "totalAmount": 0.10,
   "returnUrl": "http://127.0.0.1:5173/pay-result",
-  "businessNotifyUrl": "http://127.0.0.1:8080/api/server/gateway/pay/notify"
+  "businessNotifyUrl": "http://127.0.0.1:8081/api/merchant/gateway/pay/notify"
 }
 ```
 
@@ -225,13 +225,13 @@ RAW_BODY
 示例：如果业务通知地址是：
 
 ```text
-http://127.0.0.1:8080/api/server/gateway/pay/notify
+http://127.0.0.1:8081/api/merchant/gateway/pay/notify
 ```
 
 签名 path 是：
 
 ```text
-/api/server/gateway/pay/notify
+/api/merchant/gateway/pay/notify
 ```
 
 ### 2. 通知参数
@@ -331,7 +331,7 @@ public class PaymentGatewayDemo {
 
     public static void main(String[] args) throws Exception {
         String body = """
-                {"merchantOrderNo":"ORDER202606161510106416727","subject":"测试商品","totalAmount":0.10,"returnUrl":"http://127.0.0.1:5173/pay-result","businessNotifyUrl":"http://127.0.0.1:8080/api/server/gateway/pay/notify"}
+                {"merchantOrderNo":"ORDER202606161510106416727","subject":"测试商品","totalAmount":0.10,"returnUrl":"http://127.0.0.1:5173/pay-result","businessNotifyUrl":"http://127.0.0.1:8081/api/merchant/gateway/pay/notify"}
                 """.trim();
 
         String timestamp = LocalDateTime.now().toString();
@@ -426,4 +426,3 @@ AppId 对应错了应用
 业务系统通知接口验签失败
 业务系统没有返回 success
 ```
-

@@ -1,0 +1,304 @@
+package com.example.mallhome.service;
+
+import com.example.mallhome.config.MallhomePayProperties;
+import com.example.mallhome.domain.PayNotifyResult;
+import com.example.mallhome.domain.PaymentOrderStatus;
+import com.example.mallhome.domain.PayRuntimeConfig;
+import com.example.mallhome.entity.PaymentNotifyRecord;
+import com.example.mallhome.entity.PaymentOrder;
+import com.example.mallhome.repository.PaymentNotifyRecordRepository;
+import com.example.mallhome.repository.PaymentOrderRepository;
+import com.example.mallhome.util.JsonUtils;
+import com.example.mallhome.util.HmacUtils;
+import com.example.mallhome.util.MallhomeSignUtils;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.UUID;
+
+@Service
+public class PayNotifyService {
+
+    private static final Logger log = LoggerFactory.getLogger(PayNotifyService.class);
+
+    private final MallhomePayProperties properties;
+    private final PaymentOrderRepository paymentOrderRepository;
+    private final PaymentNotifyRecordRepository notifyRecordRepository;
+    private final PayRuntimeConfigService runtimeConfigService;
+    private final ProductOrderService productOrderService;
+
+    public PayNotifyService(
+            MallhomePayProperties properties,
+            PaymentOrderRepository paymentOrderRepository,
+            PaymentNotifyRecordRepository notifyRecordRepository,
+            PayRuntimeConfigService runtimeConfigService,
+            ProductOrderService productOrderService
+    ) {
+        this.properties = properties;
+        this.paymentOrderRepository = paymentOrderRepository;
+        this.notifyRecordRepository = notifyRecordRepository;
+        this.runtimeConfigService = runtimeConfigService;
+        this.productOrderService = productOrderService;
+    }
+
+    @Transactional
+    public PayNotifyResult handleNotify(String timeStamp, String visitAuth, Map<String, String> notifyParams) {
+        // 平台通知必须同时带上时间戳和 visitAuth，用于确认通知来源。
+        if (!StringUtils.hasText(timeStamp) || !StringUtils.hasText(visitAuth)) {
+            return failNotify(notifyParams, false, "missing timeStamp or visitAuth");
+        }
+
+        // 先校验 Header 里的 visitAuth，再校验 Body 里的业务签名。
+        if (!MallhomeSignUtils.verifyVisitAuth(properties.getMd5Key(), properties.getAesKey(), timeStamp, visitAuth)) {
+            return failNotify(notifyParams, false, "invalid visitAuth");
+        }
+
+        String pltNotifySign = notifyParams.get("pltNotifySign");
+        if (!MallhomeSignUtils.verifyNotifySign(notifyParams, visitAuth, properties.getAesKey(), pltNotifySign)) {
+            return failNotify(notifyParams, false, "invalid pltNotifySign");
+        }
+
+        // 防止其他商户号的通知误更新当前系统订单。
+        if (!properties.getExternalId().equals(notifyParams.get("externalId"))) {
+            return failNotify(notifyParams, true, "externalId mismatch");
+        }
+
+        log.info("payment notify verified: {}", maskSensitive(new TreeMap<>(notifyParams)));
+
+        // 平台回调中的 merchantTradeNo 对应本地创建订单时的 orderNo。
+        String orderNo = notifyParams.get("merchantTradeNo");
+        String notifyKey = buildNotifyKey(notifyParams);
+        if (notifyRecordRepository.existsByNotifyKey(notifyKey)) {
+            log.info("duplicate payment notify ignored: {}", notifyKey);
+            return PayNotifyResult.success();
+        }
+
+        PaymentOrder order = paymentOrderRepository.findWithLockByOrderNo(orderNo)
+                .orElse(null);
+        if (order == null) {
+            return failNotify(notifyParams, true, "local order not found: " + orderNo);
+        }
+        if (notifyRecordRepository.existsByNotifyKey(notifyKey)) {
+            log.info("duplicate payment notify ignored after order lock: {}", notifyKey);
+            return PayNotifyResult.success();
+        }
+
+        // 验签通过后才更新订单状态，避免伪造通知污染本地订单。
+        String incomingStatus = PaymentOrderStatus.fromTradeStatus(notifyParams.get("tradeStatus"));
+        if (canApplyStatus(order.getStatus(), incomingStatus)) {
+            order.setTradeStatus(notifyParams.get("tradeStatus"));
+            order.setStatus(incomingStatus);
+            order.setPlatTradeNo(firstNonBlank(notifyParams.get("platformOutTradeNo"), order.getPlatTradeNo()));
+            order.setThirdOutTradeNo(notifyParams.get("thirdOutTradeNo"));
+            order.setNotifyPayload(JsonUtils.toJson(new TreeMap<>(notifyParams)));
+            if (PaymentOrderStatus.SUCCESS.equals(incomingStatus)) {
+                order.setPaidAt(parseNotifyTime(notifyParams.get("sucTime")));
+                updateProductOrderStatus(order, "PAID");
+            }
+            paymentOrderRepository.save(order);
+        } else {
+            log.info("payment notify status ignored: orderNo={}, currentStatus={}, incomingStatus={}",
+                    orderNo, order.getStatus(), incomingStatus);
+        }
+
+        if (!saveNotifyRecord(notifyParams, true, "SUCCESS", null)) {
+            log.info("duplicate payment notify ignored after unique check: {}", notifyKey);
+        }
+
+        return PayNotifyResult.success();
+    }
+
+    @Transactional
+    public PayNotifyResult handleGatewayNotify(
+            String appId,
+            String timestamp,
+            String nonce,
+            String signature,
+            String body,
+            String requestPath
+    ) {
+        Map<String, Object> payload;
+        try {
+            payload = JsonUtils.toMap(body);
+        } catch (Exception exception) {
+            return PayNotifyResult.fail("invalid gateway notify body");
+        }
+
+        Map<String, String> notifyParams = gatewayPayloadToNotifyParams(payload);
+        if (!StringUtils.hasText(appId)
+                || !StringUtils.hasText(timestamp)
+                || !StringUtils.hasText(nonce)
+                || !StringUtils.hasText(signature)) {
+            return failNotify(notifyParams, false, "missing gateway auth headers");
+        }
+
+        String gatewayAppSecret = runtimeConfigService.gatewayAppSecret(appId);
+        if (!StringUtils.hasText(gatewayAppSecret)) {
+            return failNotify(notifyParams, false, "gateway appId mismatch");
+        }
+
+        String signPath = StringUtils.hasText(requestPath) ? requestPath : "/api/merchant/gateway/pay/notify";
+        String signText = "POST\n" + signPath + "\n" + timestamp + "\n" + nonce + "\n" + body;
+        String expected = HmacUtils.hmacSha256Base64(gatewayAppSecret, signText);
+        if (!expected.equals(signature)) {
+            return failNotify(notifyParams, false, "invalid gateway signature");
+        }
+
+        String orderNo = notifyParams.get("merchantTradeNo");
+        String notifyKey = buildNotifyKey(notifyParams);
+        if (hasSuccessfulNotifyRecord(notifyKey)) {
+            log.info("duplicate gateway payment notify ignored: {}", notifyKey);
+            return PayNotifyResult.success();
+        }
+
+        PaymentOrder order = paymentOrderRepository.findWithLockByOrderNo(orderNo).orElse(null);
+        if (order == null) {
+            return failNotify(notifyParams, true, "local order not found: " + orderNo);
+        }
+        if (hasSuccessfulNotifyRecord(notifyKey)) {
+            log.info("duplicate gateway payment notify ignored after order lock: {}", notifyKey);
+            return PayNotifyResult.success();
+        }
+
+        String incomingStatus = PaymentOrderStatus.fromTradeStatus(notifyParams.get("tradeStatus"));
+        if (canApplyStatus(order.getStatus(), incomingStatus)) {
+            order.setTradeStatus(notifyParams.get("tradeStatus"));
+            order.setStatus(incomingStatus);
+            order.setPlatTradeNo(firstNonBlank(notifyParams.get("platformOutTradeNo"), order.getPlatTradeNo()));
+            order.setThirdOutTradeNo(notifyParams.get("thirdOutTradeNo"));
+            order.setNotifyPayload(JsonUtils.toJson(new TreeMap<>(notifyParams)));
+            if (PaymentOrderStatus.SUCCESS.equals(incomingStatus)) {
+                order.setPaidAt(LocalDateTime.now());
+                updateProductOrderStatus(order, "PAID");
+            }
+            paymentOrderRepository.save(order);
+        }
+
+        saveNotifyRecord(notifyParams, true, "SUCCESS", null);
+        return PayNotifyResult.success();
+    }
+
+    private PayNotifyResult failNotify(Map<String, String> notifyParams, boolean verified, String reason) {
+        saveNotifyRecord(notifyParams, verified, "FAIL", reason);
+        return PayNotifyResult.fail(reason);
+    }
+
+    private boolean hasSuccessfulNotifyRecord(String notifyKey) {
+        return notifyRecordRepository.findByNotifyKey(notifyKey)
+                .map(record -> Boolean.TRUE.equals(record.getVerified()) && "SUCCESS".equals(record.getResult()))
+                .orElse(false);
+    }
+
+    private boolean saveNotifyRecord(Map<String, String> notifyParams, boolean verified, String result, String failureReason) {
+        String notifyKey = buildNotifyKey(notifyParams);
+        PaymentNotifyRecord record = notifyRecordRepository.findByNotifyKey(notifyKey).orElseGet(PaymentNotifyRecord::new);
+        record.setOrderNo(notifyParams.get("merchantTradeNo"));
+        record.setExternalId(notifyParams.get("externalId"));
+        record.setTradeStatus(notifyParams.get("tradeStatus"));
+        record.setPlatformOutTradeNo(notifyParams.get("platformOutTradeNo"));
+        record.setNotifyKey(notifyKey);
+        record.setVerified(verified);
+        record.setResult(result);
+        record.setFailureReason(failureReason);
+        record.setNotifyPayload(JsonUtils.toJson(new TreeMap<>(notifyParams)));
+        try {
+            notifyRecordRepository.saveAndFlush(record);
+            return true;
+        } catch (DataIntegrityViolationException exception) {
+            return false;
+        }
+    }
+
+    private static boolean canApplyStatus(String currentStatus, String incomingStatus) {
+        return statusPriority(incomingStatus) >= statusPriority(currentStatus);
+    }
+
+    private static int statusPriority(String status) {
+        if (PaymentOrderStatus.SUCCESS.equals(status)) {
+            return 40;
+        }
+        if (PaymentOrderStatus.FINISHED.equals(status) || PaymentOrderStatus.CLOSED.equals(status)) {
+            return 30;
+        }
+        if (PaymentOrderStatus.CREATE_SUCCESS.equals(status)) {
+            return 20;
+        }
+        if (PaymentOrderStatus.CREATED.equals(status) || PaymentOrderStatus.CREATE_FAILED.equals(status)) {
+            return 10;
+        }
+        return 0;
+    }
+
+    private static String buildNotifyKey(Map<String, String> notifyParams) {
+        if (!StringUtils.hasText(notifyParams.get("merchantTradeNo"))) {
+            return "INVALID|" + UUID.randomUUID();
+        }
+        return firstNonBlank(notifyParams.get("merchantTradeNo"), "-")
+                + "|"
+                + firstNonBlank(notifyParams.get("platformOutTradeNo"), "-")
+                + "|"
+                + firstNonBlank(notifyParams.get("tradeStatus"), "-");
+    }
+
+    private static Map<String, String> gatewayPayloadToNotifyParams(Map<String, Object> payload) {
+        Map<String, String> params = new TreeMap<>();
+        params.put("merchantTradeNo", string(payload.get("merchantOrderNo")));
+        params.put("externalId", string(payload.get("appId")));
+        params.put("tradeStatus", string(payload.get("tradeStatus")));
+        params.put("platformOutTradeNo", string(payload.get("gatewayOrderNo")));
+        params.put("thirdOutTradeNo", string(payload.get("alipayTradeNo")));
+        params.put("gatewayStatus", string(payload.get("status")));
+        params.put("notifyPayload", string(payload.get("notifyPayload")));
+        return params;
+    }
+
+    private static String string(Object value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private static Map<String, String> maskSensitive(Map<String, String> params) {
+        // 日志里保留排查所需字段，但隐藏签名和买家信息。
+        params.computeIfPresent("pltNotifySign", (key, value) -> "******");
+        params.computeIfPresent("buyerInfo", (key, value) -> "******");
+        return params;
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        return StringUtils.hasText(first) ? first : second;
+    }
+
+    private static LocalDateTime parseNotifyTime(String value) {
+        // 平台时间格式可能有差异，这里兼容常见格式，解析失败则不写 paidAt。
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        for (DateTimeFormatter formatter : new DateTimeFormatter[]{
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
+                DateTimeFormatter.ISO_LOCAL_DATE_TIME
+        }) {
+            try {
+                return LocalDateTime.parse(value, formatter);
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private void updateProductOrderStatus(PaymentOrder paymentOrder, String newStatus) {
+        if (paymentOrder.getProductOrderId() == null) return;
+        try {
+            productOrderService.updateStatus(paymentOrder.getProductOrderId(), newStatus);
+        } catch (Exception e) {
+            log.warn("Failed to update product order status: orderNo={}, productOrderId={}, error={}",
+                    paymentOrder.getOrderNo(), paymentOrder.getProductOrderId(), e.getMessage());
+        }
+    }
+}

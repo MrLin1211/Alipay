@@ -1,6 +1,6 @@
 # 支付网关管理后台
 
-独立管理 `payment-gateway` 服务的前端项目。
+独立管理 `payment-gateway-api` 服务的前端项目。
 
 ## 启动
 

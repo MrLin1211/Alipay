@@ -1,0 +1,16 @@
+[Unit]
+Description=Alipay Payment Gateway API
+After=network.target mysql.service
+
+[Service]
+User=alipay
+WorkingDirectory=/opt/alipay
+EnvironmentFile=/etc/alipay/alipay.env
+Environment=PAYMENT_GATEWAY_PORT=8090
+ExecStart=/usr/bin/java -jar /opt/alipay/payment-gateway-api.jar
+Restart=always
+RestartSec=5
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target

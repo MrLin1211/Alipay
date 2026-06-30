@@ -1,0 +1,25 @@
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/alipay_pay?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:alipay_user}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+mallhome:
+  gateway-datasource:
+    url: ${GATEWAY_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/alipay_pay?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${GATEWAY_DATASOURCE_USERNAME:alipay_user}
+    password: ${GATEWAY_DATASOURCE_PASSWORD}
+  pay:
+    host: ${MALLHOME_PAY_HOST:https://api.linsy.online}
+    md5-key: ${MALLHOME_MD5_KEY}
+    aes-key: ${MALLHOME_AES_KEY}
+    external-id: ${MALLHOME_EXTERNAL_ID}
+    notify-url: ${MALLHOME_NOTIFY_URL:https://api.linsy.online/api/pay/notify}
+    return-url: ${MALLHOME_RETURN_URL:https://mall.linsy.online/pay-result}
+    gateway-host: ${PAYMENT_GATEWAY_HOST:http://127.0.0.1:8090}
+    gateway-app-id: ${PAYMENT_GATEWAY_APP_ID:biz-demo}
+    gateway-app-secret: ${PAYMENT_GATEWAY_APP_SECRET}

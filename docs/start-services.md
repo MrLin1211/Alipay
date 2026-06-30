@@ -1,14 +1,19 @@
 # 前后端服务启动文档
 
-本文档用于本地开发时启动支付后端、前端支付页和管理后台。
+本文档用于本地开发时启动商城后端、商家后台后端、支付网关、商城和后台前端。
+
+> **提示：** 所有服务已配置为同时支持本机访问和局域网访问。在局域网其他设备上访问时，请将 IP 替换为电脑的局域网 IP（如 `192.168.5.55`）。
 
 ## 服务地址
 
-| 服务 | 目录 | 端口 | 访问地址 |
-| --- | --- | --- | --- |
-| 后端服务 | `backend` | `8080` | `http://127.0.0.1:8080` |
-| 前端支付页 | `frontend` | `5173` | `http://127.0.0.1:5173` |
-| 管理后台 | `admin` | `5174` | `http://127.0.0.1:5174` |
+| 服务 | 目录 | 端口 | 本机访问 | 局域网访问 |
+| --- | --- | --- | --- | --- |
+| 商城后端 | `mall-api` | `8080` | `http://127.0.0.1:8080` | `http://192.168.5.55:8080` |
+| 商家后台后端 | `merchant-api` | `8081` | `http://127.0.0.1:8081` | `http://192.168.5.55:8081` |
+| 支付网关服务 | `payment-gateway-api` | `8090` | `http://127.0.0.1:8090` | `http://192.168.5.55:8090` |
+| 商城 | `mall` | `5173` | `http://127.0.0.1:5173` | `http://192.168.5.55:5173` |
+| 商家后台 | `merchant` | `5174` | `http://127.0.0.1:5174` | `http://192.168.5.55:5174` |
+| 管理后台 | `payment-gateway-admin` | `5175` | `http://127.0.0.1:5175` | `http://192.168.5.55:5175` |
 
 ## 启动前检查
 
@@ -26,93 +31,154 @@ Username: alipay_user
 Password: alipay123456
 ```
 
-后端本地环境变量配置文件：
+商城后端本地环境变量配置文件：
 
 ```text
-backend/.env
+mall-api/.env
 ```
 
-## 单独启动后端
+商家后台后端本地环境变量配置文件：
+
+```text
+merchant-api/.env
+```
+
+## 单独启动商城后端
 
 从项目根目录执行：
 
 ```bash
-sh backend/scripts/run-local.sh
+sh mall-api/scripts/run-local.sh
 ```
 
-或者进入后端目录执行：
+或者进入商城后端目录执行：
 
 ```bash
-cd backend
+cd mall-api
 sh scripts/run-local.sh
 ```
 
-启动成功后，控制台会看到类似日志：
+商城后端默认监听所有网卡（`0.0.0.0:8080`），本机和局域网均可访问，商城接口统一为 `/api/mall/**`。
 
-```text
-Tomcat started on port 8080
-Started MallhomePayApplication
-```
-
-## 单独启动前端支付页
+## 单独启动商家后台后端
 
 ```bash
-cd frontend
+sh merchant-api/scripts/run-local.sh
+```
+
+商家后台后端默认监听所有网卡（`0.0.0.0:8081`），商家后台接口统一为 `/api/merchant/**`。
+
+## 单独启动支付网关
+
+```bash
+sh payment-gateway-api/scripts/run-local.sh
+```
+
+支付网关默认监听所有网卡（`0.0.0.0:8090`），本机和局域网均可访问。
+
+## 单独启动商城
+
+```bash
+cd mall
+npm run dev
+```
+
+或者显式指定局域网模式：
+
+```bash
+cd mall
+npm run dev:lan
+```
+
+启动成功后访问：
+
+- 本机：`http://127.0.0.1:5173`
+- 局域网：`http://192.168.5.55:5173`
+
+## 单独启动商家后台
+
+```bash
+cd merchant
+npm run dev -- --host 0.0.0.0 --port 5174
+```
+
+启动成功后访问：
+
+- 本机：`http://127.0.0.1:5174`
+- 局域网：`http://192.168.5.55:5174`
+
+## 单独启动支付网关后台
+
+```bash
+cd payment-gateway-admin
 npm run dev
 ```
 
 启动成功后访问：
 
-```text
-http://127.0.0.1:5173
-```
+- 本机：`http://127.0.0.1:5175`
+- 局域网：`http://192.168.5.55:5175`
 
-## 单独启动管理后台
+## 同时启动所有服务
 
-为了固定管理后台端口为 `5174`，建议使用：
-
-```bash
-cd admin
-npm run dev -- --host 127.0.0.1 --port 5174
-```
-
-启动成功后访问：
-
-```text
-http://127.0.0.1:5174
-```
-
-## 同时启动三个服务
-
-需要打开三个终端窗口，分别执行：
+需要打开六个终端窗口，分别执行：
 
 ```bash
-sh backend/scripts/run-local.sh
+# 终端 1 - 商城后端
+sh mall-api/scripts/run-local.sh
+
+# 终端 2 - 商家后台后端
+sh merchant-api/scripts/run-local.sh
+
+# 终端 3 - 支付网关
+sh payment-gateway-api/scripts/run-local.sh
+
+# 终端 4 - 商城
+cd mall && npm run dev
+
+# 终端 5 - 商家后台
+cd merchant && npm run dev
+
+# 终端 6 - 管理后台
+cd payment-gateway-admin && npm run dev
 ```
 
-```bash
-cd frontend
-npm run dev
-```
+## 局域网访问注意事项
 
-```bash
-cd admin
-npm run dev -- --host 127.0.0.1 --port 5174
-```
+从局域网其他设备（手机、平板等）访问时：
+
+1. **前端页面** 和后端 API 地址要对应：
+   - 手机浏览器打开 `http://192.168.5.55:5173`（商城）
+   - 在页面设置中将"后端地址"改为 `http://192.168.5.55:8080`
+   
+2. **商家后台** 同样需要设置后端地址：
+   - 打开 `http://192.168.5.55:5174`
+   - 登录页的"后端地址"改为 `http://192.168.5.55:8081`
+
+3. **支付网关后台**：
+   - 打开 `http://192.168.5.55:5175`
+   - 在设置中将网关地址改为 `http://192.168.5.55:8090`
+
+4. 确保防火墙允许对应端口的入站连接（8080, 8081, 8090, 5173, 5174, 5175）
 
 ## 查看端口占用
 
 ```bash
-lsof -nP -iTCP -sTCP:LISTEN | rg ':(8080|5173|5174) '
+lsof -nP -iTCP -sTCP:LISTEN | rg ':(8080|8081|8090|5173|5174|5175) '
 ```
 
 正常运行时会看到：
 
 ```text
 java  ... TCP *:8080 (LISTEN)
-node  ... TCP 127.0.0.1:5173 (LISTEN)
-node  ... TCP 127.0.0.1:5174 (LISTEN)
+java  ... TCP *:8081 (LISTEN)
+java  ... TCP *:8090 (LISTEN)
+node  ... TCP *:5173 (LISTEN)
+node  ... TCP *:5174 (LISTEN)
+node  ... TCP *:5175 (LISTEN)
 ```
+
+> `*:PORT` 表示监听所有网卡，局域网可访问。
 
 ## 停止服务
 
@@ -125,7 +191,7 @@ Control + C
 如果需要按端口停止，先查 PID：
 
 ```bash
-lsof -nP -iTCP -sTCP:LISTEN | rg ':(8080|5173|5174) '
+lsof -nP -iTCP -sTCP:LISTEN | rg ':(8080|8081|8090|5173|5174|5175) '
 ```
 
 然后停止对应进程：
@@ -142,12 +208,13 @@ kill 12345
 
 ## 常见问题
 
-### 8080 端口被占用
+### 8080 或 8081 端口被占用
 
-说明已有后端服务在运行。先查 PID：
+说明已有商城后端或商家后台后端服务在运行。先查 PID：
 
 ```bash
 lsof -nP -iTCP:8080 -sTCP:LISTEN
+lsof -nP -iTCP:8081 -sTCP:LISTEN
 ```
 
 再停止对应进程：
@@ -161,26 +228,27 @@ kill <PID>
 检查后端是否已启动：
 
 ```bash
-curl http://127.0.0.1:8080/api/admin/pay-config
+curl http://127.0.0.1:8080/api/mall/catalog/categories
+curl http://127.0.0.1:8081/api/merchant/categories
 ```
 
-如果 iOS 模拟器访问后端失败，可以把 App 里的后端地址从：
+如果 iOS 模拟器/真机访问后端失败，把 App 里的后端地址改成电脑局域网 IP：
 
 ```text
-http://localhost:8080
+http://192.168.5.55:8080
 ```
 
-改成电脑局域网 IP：
+商家后台则使用：
 
 ```text
-http://192.168.x.x:8080
+http://192.168.5.55:8081
 ```
 
-### 管理后台端口不是 5174
+### 商家后台端口不是 5174
 
 Vite 默认可能自动切换端口。请使用固定端口启动命令：
 
 ```bash
-cd admin
-npm run dev -- --host 127.0.0.1 --port 5174
+cd merchant
+npm run dev -- --host 0.0.0.0 --port 5174
 ```
