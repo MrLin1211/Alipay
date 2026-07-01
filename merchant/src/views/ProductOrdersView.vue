@@ -93,22 +93,51 @@
 
     <el-drawer v-model="drawer.show" title="订单详情" :size="drawerSize" class="order-detail-drawer">
       <template v-if="drawer.order">
-        <el-descriptions :column="detailColumns" border>
-          <el-descriptions-item label="订单编号">{{ drawer.order.orderNo }}</el-descriptions-item>
-          <el-descriptions-item label="状态">
+        <div class="order-detail-summary">
+          <div class="order-detail-hero">
+            <span>订单金额</span>
+            <strong>¥{{ drawer.order.totalAmount }}</strong>
             <el-tag :type="statusType(drawer.order.status)">{{ statusLabel(drawer.order.status) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="买家">{{ drawer.order.userPhone }} / {{ drawer.order.userDisplayName }}</el-descriptions-item>
-          <el-descriptions-item label="商家">{{ drawer.order.merchantName }}</el-descriptions-item>
-          <el-descriptions-item label="总金额">¥{{ drawer.order.totalAmount }}</el-descriptions-item>
-          <el-descriptions-item label="优惠">¥{{ drawer.order.discountAmount }}</el-descriptions-item>
-          <el-descriptions-item label="收货人">{{ drawer.order.shippingName || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="收货电话">{{ drawer.order.shippingPhone || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="收货地址" :span="2">{{ drawer.order.shippingAddress || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="支付时间">{{ drawer.order.paidAt || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="发货时间">{{ drawer.order.shippedAt || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ drawer.order.createdAt }}</el-descriptions-item>
-        </el-descriptions>
+          </div>
+          <div class="order-detail-meta">
+            <div>
+              <span>订单编号</span>
+              <strong>{{ drawer.order.orderNo }}</strong>
+            </div>
+            <div>
+              <span>买家</span>
+              <strong>{{ drawer.order.userDisplayName || '-' }} / {{ drawer.order.userPhone || '-' }}</strong>
+            </div>
+            <div>
+              <span>商家</span>
+              <strong>{{ drawer.order.merchantName || '-' }}</strong>
+            </div>
+            <div>
+              <span>优惠金额</span>
+              <strong>¥{{ drawer.order.discountAmount }}</strong>
+            </div>
+            <div>
+              <span>创建时间</span>
+              <strong>{{ drawer.order.createdAt }}</strong>
+            </div>
+            <div>
+              <span>支付时间</span>
+              <strong>{{ drawer.order.paidAt || '-' }}</strong>
+            </div>
+            <div>
+              <span>发货时间</span>
+              <strong>{{ drawer.order.shippedAt || '-' }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="order-detail-address">
+          <div>
+            <span>收货信息</span>
+            <strong>{{ drawer.order.shippingName || '-' }} {{ drawer.order.shippingPhone || '' }}</strong>
+            <p>{{ drawer.order.shippingAddress || '-' }}</p>
+          </div>
+        </div>
 
         <h4 class="detail-section-title">商品明细</h4>
         <div class="detail-table-wrap">
@@ -176,7 +205,6 @@ const loading = ref(false);
 const viewportWidth = ref(window.innerWidth);
 const isMobile = computed(() => viewportWidth.value <= 760);
 const drawerSize = computed(() => (isMobile.value ? "100%" : "680px"));
-const detailColumns = computed(() => (isMobile.value ? 1 : 2));
 
 function updateViewportWidth() {
   viewportWidth.value = window.innerWidth;

@@ -102,85 +102,112 @@
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑商品' : '新增商品'" width="680px" class="product-dialog">
-      <el-form :model="form" label-width="96px">
-        <el-form-item label="商品编码">
-          <el-input :model-value="editingId ? form.productCode : '保存后系统自动生成'" disabled />
-        </el-form-item>
-        <el-form-item label="商品名称" required>
-          <el-input v-model="form.productName" maxlength="128" show-word-limit />
-        </el-form-item>
-        <el-form-item label="分类" required>
-          <el-select v-model="form.category" filterable placeholder="请选择商品分类" class="full-control">
-            <el-option v-for="item in categories" :key="item.category_code" :label="item.category_name" :value="item.category_code" />
-          </el-select>
-        </el-form-item>
-        <div class="form-grid">
-          <el-form-item label="状态" required>
-            <el-select v-model="form.status" class="full-control">
-              <el-option v-for="item in productStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+      <el-form :model="form" label-width="96px" class="product-form">
+        <section class="form-section">
+          <div class="form-section-head">
+            <strong>基础信息</strong>
+            <span>商品编码由系统自动生成，编辑时不可修改</span>
+          </div>
+          <el-form-item label="商品编码">
+            <el-input :model-value="editingId ? form.productCode : '保存后系统自动生成'" disabled />
+          </el-form-item>
+          <el-form-item label="商品名称" required>
+            <el-input v-model="form.productName" maxlength="128" show-word-limit />
+          </el-form-item>
+          <el-form-item label="分类" required>
+            <el-select v-model="form.category" filterable placeholder="请选择商品分类" class="full-control">
+              <el-option v-for="item in categories" :key="item.category_code" :label="item.category_name" :value="item.category_code" />
             </el-select>
           </el-form-item>
-        </div>
-        <el-form-item label="SKU配置" required>
-          <div class="sku-editor">
-            <el-table :data="form.skus" size="small" border>
-              <el-table-column label="规格名称" min-width="140">
-                <template #default="{ row }">
-                  <el-input v-model="row.skuName" placeholder="默认规格" />
-                </template>
-              </el-table-column>
-              <el-table-column label="价格" width="150">
-                <template #default="{ row }">
-                  <el-input-number v-model="row.price" :min="0.01" :precision="2" :step="1" class="full-control" />
-                </template>
-              </el-table-column>
-              <el-table-column label="库存" width="130">
-                <template #default="{ row }">
-                  <el-input-number v-model="row.stock" :min="0" :step="1" class="full-control" />
-                </template>
-              </el-table-column>
-              <el-table-column label="启用" width="80">
-                <template #default="{ row }">
-                  <el-switch v-model="row.enabled" />
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="80">
-                <template #default="{ $index }">
-                  <el-button link type="danger" :disabled="form.skus.length <= 1" @click="removeSku($index)">删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-            <el-button class="sku-add-button" :icon="Plus" @click="addSku">添加SKU</el-button>
+          <div class="form-grid">
+            <el-form-item label="状态" required>
+              <el-select v-model="form.status" class="full-control">
+                <el-option v-for="item in productStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
           </div>
-        </el-form-item>
-        <el-form-item label="商品图片">
-          <div class="product-image-field">
-            <div v-for="(url, index) in form.imageUrls" :key="url" class="product-image-preview">
-              <img :src="url" alt="商品图片" />
-              <span v-if="index === 0" class="main-image-badge">主图</span>
-              <button class="image-remove" type="button" @click="removeImage(index)">×</button>
+        </section>
+
+        <section class="form-section">
+          <div class="form-section-head">
+            <strong>SKU 配置</strong>
+            <span>列表价格取启用 SKU 最低价，库存取启用 SKU 合计</span>
+          </div>
+          <el-form-item label="SKU配置" required>
+            <div class="sku-editor">
+              <el-table :data="form.skus" size="small" border>
+                <el-table-column label="规格名称" min-width="140">
+                  <template #default="{ row }">
+                    <el-input v-model="row.skuName" placeholder="默认规格" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="价格" width="150">
+                  <template #default="{ row }">
+                    <el-input-number v-model="row.price" :min="0.01" :precision="2" :step="1" class="full-control" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="库存" width="130">
+                  <template #default="{ row }">
+                    <el-input-number v-model="row.stock" :min="0" :step="1" class="full-control" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="启用" width="80">
+                  <template #default="{ row }">
+                    <el-switch v-model="row.enabled" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="80">
+                  <template #default="{ $index }">
+                    <el-button link type="danger" :disabled="form.skus.length <= 1" @click="removeSku($index)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-button class="sku-add-button" :icon="Plus" @click="addSku">添加SKU</el-button>
             </div>
-            <el-upload
-              v-if="form.imageUrls.length < 5"
-              class="product-image-upload"
-              accept="image/*"
-              :show-file-list="false"
-              :http-request="uploadCoverImage"
-            >
-              <div class="product-image-placeholder">
-                <el-icon><Plus /></el-icon>
-                <span>上传图片</span>
+          </el-form-item>
+        </section>
+
+        <section class="form-section">
+          <div class="form-section-head">
+            <strong>商品图片</strong>
+            <span>最多 5 张，第一张作为商城主图</span>
+          </div>
+          <el-form-item label="商品图片">
+            <div class="product-image-field">
+              <div v-for="(url, index) in form.imageUrls" :key="url" class="product-image-preview">
+                <img :src="url" alt="商品图片" />
+                <span v-if="index === 0" class="main-image-badge">主图</span>
+                <button class="image-remove" type="button" @click="removeImage(index)">×</button>
               </div>
-            </el-upload>
-            <div class="image-actions">
-              <span v-if="uploadingImage">上传中...</span>
-              <span v-else>最多5张，第一张作为主图。支持 JPG、PNG、WEBP、GIF，最大 5MB</span>
+              <el-upload
+                v-if="form.imageUrls.length < 5"
+                class="product-image-upload"
+                accept="image/*"
+                :show-file-list="false"
+                :http-request="uploadCoverImage"
+              >
+                <div class="product-image-placeholder">
+                  <el-icon><Plus /></el-icon>
+                  <span>上传图片</span>
+                </div>
+              </el-upload>
+              <div class="image-actions">
+                <span v-if="uploadingImage">上传中...</span>
+                <span v-else>支持 JPG、PNG、WEBP、GIF，最大 5MB</span>
+              </div>
             </div>
+          </el-form-item>
+        </section>
+
+        <section class="form-section">
+          <div class="form-section-head">
+            <strong>商品描述</strong>
+            <span>用于后台维护，商城列表不展示描述</span>
           </div>
-        </el-form-item>
-        <el-form-item label="商品描述">
-          <el-input v-model="form.description" type="textarea" :rows="4" maxlength="1024" show-word-limit />
-        </el-form-item>
+          <el-form-item label="商品描述">
+            <el-input v-model="form.description" type="textarea" :rows="4" maxlength="1024" show-word-limit />
+          </el-form-item>
+        </section>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>

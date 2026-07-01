@@ -228,8 +228,12 @@
         <div v-for="addr in addresses" :key="addr.id" class="address-card" :class="{ 'is-default': addr.isDefault, 'is-selected': isSelectedAddress(addr) }">
           <div class="address-card-body" @click="selectCheckoutAddress(addr)">
             <van-icon :name="isSelectedAddress(addr) ? 'checked' : 'circle'" :color="isSelectedAddress(addr) ? '#0f766e' : '#c0c4cc'" size="20" />
-            <div>
-              <strong>{{ addr.receiverName }} {{ addr.phone }}</strong>
+            <div class="address-copy">
+              <div class="address-name-row">
+                <strong>{{ addr.receiverName }} {{ addr.phone }}</strong>
+                <span v-if="addr.isDefault" class="address-badge">默认</span>
+                <span v-if="isSelectedAddress(addr)" class="address-badge selected">已选</span>
+              </div>
               <small>{{ addr.province }} {{ addr.city }} {{ addr.district }} {{ addr.detailAddress }}</small>
             </div>
           </div>
@@ -261,15 +265,18 @@
             <van-tag :type="orderStatusTag(po.status)" size="medium">{{ orderStatusLabel(po.status) }}</van-tag>
           </div>
           <div class="order-items">
-            <van-card
-              v-for="item in po.items"
-              :key="item.id"
-              :title="item.productName"
-              :desc="item.skuName || item.skuCode || '默认规格'"
-              :thumb="item.productImage"
-              :price="formatAmount(item.unitPrice)"
-              :num="item.quantity"
-            />
+            <div v-for="item in visibleOrderItems(po)" :key="item.id" class="order-item-row">
+              <img :src="item.productImage" :alt="item.productName" />
+              <div>
+                <strong>{{ item.productName }}</strong>
+                <span>{{ item.skuName || item.skuCode || '默认规格' }}</span>
+                <em>{{ money(item.unitPrice) }}</em>
+              </div>
+              <small>x{{ item.quantity }}</small>
+            </div>
+            <div v-if="hiddenOrderItemCount(po)" class="order-more-row">
+              共 {{ po.items.length }} 件商品，已收起 {{ hiddenOrderItemCount(po) }} 件
+            </div>
           </div>
           <div class="order-shipping">
             <van-icon name="location-o" />
@@ -279,23 +286,17 @@
             </div>
           </div>
           <div class="order-card-footer">
-            <span>{{ po.createdAt }}</span>
-            <div v-if="!hasPendingPayment(po)" class="order-total">
+            <div class="order-time-block">
+              <span>下单时间</span>
+              <strong>{{ po.createdAt }}</strong>
+            </div>
+            <div class="order-total">
               <span>合计</span>
               <strong>{{ money(po.totalAmount) }}</strong>
             </div>
           </div>
           <div v-if="hasPendingPayment(po)" class="order-pay-bar">
-            <div class="order-pay-price">
-              <span class="order-pay-label">合计</span>
-              <span class="order-pay-amount">{{ money(po.totalAmount) }}</span>
-            </div>
-            <van-button
-              round
-              type="primary"
-              color="linear-gradient(to right, #ff6034, #ee0a24)"
-              @click="openPayForOrder(po)"
-            >去支付</van-button>
+            <button class="order-pay-button" type="button" @click="openPayForOrder(po)">去支付</button>
           </div>
         </div>
       </div>
@@ -309,12 +310,16 @@
           </van-swipe-item>
         </van-swipe>
         <div class="detail-content">
-          <span class="eyebrow">{{ categoryName(selectedProduct.category) }}</span>
-          <h2>{{ selectedProduct.name }}</h2>
-          <div class="detail-price">
-            <strong>{{ money(selectedSku?.price || selectedProduct.price) }}</strong>
-            <del>{{ money(selectedProduct.originPrice) }}</del>
-            <van-tag round type="danger">库存 {{ selectedSku?.stock ?? selectedProduct.stock }}</van-tag>
+          <div class="detail-title-block">
+            <span class="eyebrow">{{ categoryName(selectedProduct.category) }}</span>
+            <h2>{{ selectedProduct.name }}</h2>
+          </div>
+          <div class="detail-price-panel">
+            <div class="detail-price">
+              <strong>{{ money(selectedSku?.price || selectedProduct.price) }}</strong>
+              <del>{{ money(selectedProduct.originPrice) }}</del>
+            </div>
+            <span>库存 {{ selectedSku?.stock ?? selectedProduct.stock }}</span>
           </div>
           <div class="detail-shop">
             <van-icon name="shop-o" />
@@ -323,72 +328,136 @@
               <span>由商家提供商品和售后服务</span>
             </div>
           </div>
-          <van-radio-group v-if="selectedProduct.skus?.length" v-model="selectedSkuId" direction="horizontal" class="sku-radio-group">
-            <van-radio v-for="sku in selectedProduct.skus" :key="sku.id" :name="sku.id">{{ sku.skuName }}</van-radio>
-          </van-radio-group>
+          <section v-if="selectedProduct.skus?.length" class="detail-section">
+            <div class="detail-section-head">
+              <strong>选择规格</strong>
+              <span>{{ selectedProduct.skus.length }} 个规格</span>
+            </div>
+            <div class="sku-card-grid">
+              <button
+                v-for="sku in selectedProduct.skus"
+                :key="sku.id"
+                :class="{ active: String(selectedSkuId || 'default') === String(sku.id || 'default') }"
+                type="button"
+                @click="selectedSkuId = sku.id || null"
+              >
+                <strong>{{ sku.skuName }}</strong>
+                <span>
+                  <em>{{ money(sku.price) }}</em>
+                  <small>库存 {{ sku.stock }}</small>
+                </span>
+              </button>
+            </div>
+          </section>
           <p>{{ selectedProduct.desc }}</p>
-          <van-grid :column-num="3" border>
-            <van-grid-item text="7天无理由" icon="passed" />
-            <van-grid-item :text="selectedProduct.fast ? '同城极速达' : '次日达'" icon="logistics" />
-            <van-grid-item text="正品保障" icon="certificate" />
-          </van-grid>
+          <div class="service-strip">
+            <span><van-icon name="passed" />7天无理由</span>
+            <span><van-icon name="logistics" />{{ selectedProduct.fast ? '同城极速达' : '次日达' }}</span>
+            <span><van-icon name="certificate" />正品保障</span>
+          </div>
         </div>
         <div class="detail-actions">
-          <van-button block round color="#0f766e" icon="shopping-cart-o" @click="addToCart(selectedProduct)">加入购物车</van-button>
-          <van-button block round plain color="#0f766e" icon="cash-back-record" @click="buyNow(selectedProduct)">立即购买</van-button>
+          <button class="detail-cart-button" type="button" @click="addToCart(selectedProduct)">加入购物车</button>
+          <button class="detail-buy-button" type="button" @click="buyNow(selectedProduct)">立即购买</button>
         </div>
       </template>
     </van-popup>
 
     <van-popup v-model:show="showCart" position="bottom" round closeable class="cart-popup">
-      <h2>购物车</h2>
+      <div class="popup-title">
+        <div>
+          <span class="eyebrow">Cart</span>
+          <h2>购物车</h2>
+        </div>
+        <small>{{ cartCount }} 件商品</small>
+      </div>
       <van-empty v-if="cartRows.length === 0" description="购物车为空" />
       <div v-else class="cart-list">
-        <van-card
-          v-for="row in cartRows"
-          :key="row.key"
-          :title="row.product.name"
-          :desc="cartSkuDesc(row)"
-          :thumb="row.product.image"
-          :price="formatAmount(row.sku.price)"
-          :origin-price="formatAmount(row.product.originPrice)"
-        >
-          <template #footer>
+        <div v-for="row in cartRows" :key="row.key" class="cart-item-card">
+          <img :src="row.product.image" :alt="row.product.name" />
+          <div class="cart-item-main">
+            <strong>{{ row.product.name }}</strong>
+            <span class="cart-merchant-name">{{ cartMerchantName(row) }}</span>
+            <span class="cart-sku-name">{{ cartSkuName(row) }}</span>
+          </div>
+          <div class="cart-item-bottom">
+            <div>
+              <em>{{ money(row.sku.price) }}</em>
+              <del>{{ money(row.product.originPrice) }}</del>
+            </div>
             <van-stepper v-model="cart[row.key]" min="0" integer @change="syncCart" />
-          </template>
-        </van-card>
+          </div>
+        </div>
       </div>
-      <van-submit-bar
-        :price="Math.round(cartTotal.total * 100)"
-        button-text="去结算"
-        :disabled="cartRows.length === 0"
-        @submit="openCheckout"
-      >
-        <span>已优惠 {{ money(cartTotal.discount) }}</span>
-      </van-submit-bar>
+      <div v-if="cartRows.length" class="cart-summary">
+        <span>商品金额</span>
+        <strong>{{ money(cartTotal.subtotal) }}</strong>
+        <span>已优惠</span>
+        <strong class="discount">{{ money(cartTotal.discount) }}</strong>
+      </div>
+      <div class="cart-bottom-bar">
+        <div>
+          <span>合计</span>
+          <strong>{{ money(cartTotal.total) }}</strong>
+        </div>
+        <button class="checkout-primary-button" type="button" :disabled="cartRows.length === 0" @click="openCheckout">去结算</button>
+      </div>
     </van-popup>
 
     <van-popup v-model:show="showCheckout" position="bottom" round closeable class="checkout-popup">
-      <h2>确认订单</h2>
+      <div class="popup-title">
+        <div>
+          <span class="eyebrow">Checkout</span>
+          <h2>确认订单</h2>
+        </div>
+        <small>{{ checkoutMerchantName || '待确认商家' }}</small>
+      </div>
       <van-steps :active="checkoutDone ? 2 : 1">
         <van-step>地址</van-step>
         <van-step>支付</van-step>
         <van-step>完成</van-step>
       </van-steps>
-      <van-cell-group inset>
-        <van-cell
-          title="收货地址"
-          :label="selectedAddress ? formatAddress(selectedAddress) : '请先新增收货地址'"
-          :value="selectedAddress ? selectedAddress.receiverName : '去添加'"
-          is-link
-          @click="openAddresses"
-        />
-        <van-cell title="支付方式" value="支付宝" is-link />
-        <van-cell title="配送方式" :value="cartTotal.shipping > 0 ? '普通配送' : '包邮极速达'" />
-        <van-cell title="登录账号" :value="customerUser?.phone || '未登录'" />
-        <van-cell title="收款商家" :value="checkoutMerchantName || '-'" />
-        <van-cell v-for="row in cartRows" :key="row.key" :title="row.product.name" :value="money(row.sku.price) + ' ×' + row.qty" :label="cartSkuDesc(row)" />
-      </van-cell-group>
+      <section class="checkout-section address-section" @click="openAddresses">
+        <van-icon name="location-o" />
+        <div>
+          <strong>{{ selectedAddress ? selectedAddress.receiverName : '请选择收货地址' }}</strong>
+          <span>{{ selectedAddress ? formatAddress(selectedAddress) : '下单前需要选择真实收货地址' }}</span>
+        </div>
+        <van-icon name="arrow" />
+      </section>
+      <section class="checkout-section">
+        <div class="checkout-row">
+          <span>支付方式</span>
+          <strong>支付宝</strong>
+        </div>
+        <div class="checkout-row">
+          <span>配送方式</span>
+          <strong>{{ cartTotal.shipping > 0 ? '普通配送' : '包邮极速达' }}</strong>
+        </div>
+        <div class="checkout-row">
+          <span>登录账号</span>
+          <strong>{{ customerUser?.phone || '未登录' }}</strong>
+        </div>
+        <div class="checkout-row">
+          <span>收款商家</span>
+          <strong>{{ checkoutMerchantName || '-' }}</strong>
+        </div>
+      </section>
+      <section class="checkout-section">
+        <div class="checkout-section-head">
+          <strong>商品明细</strong>
+          <span>{{ cartCount }} 件</span>
+        </div>
+        <div v-for="row in cartRows" :key="row.key" class="checkout-goods-row">
+          <img :src="row.product.image" :alt="row.product.name" />
+          <div>
+            <strong>{{ row.product.name }}</strong>
+            <span class="checkout-merchant-name">{{ cartMerchantName(row) }}</span>
+            <span class="checkout-sku-name">{{ cartSkuName(row) }}</span>
+          </div>
+          <em>{{ money(row.sku.price) }} ×{{ row.qty }}</em>
+        </div>
+      </section>
       <section v-if="createdOrder" class="pay-result-card">
         <span class="eyebrow">Pay Order</span>
         <strong>{{ createdOrder.orderNo }}</strong>
@@ -398,13 +467,15 @@
           <van-button size="small" round @click="openResultPage">查看结果</van-button>
         </div>
       </section>
-      <van-submit-bar
-        :price="Math.round(cartTotal.total * 100)"
-        :button-text="createdOrder ? '重新支付' : '去支付'"
-        :disabled="cartRows.length === 0"
-        :loading="payCreating"
-        @submit="placeOrder"
-      />
+      <div class="cart-bottom-bar checkout-bottom-bar">
+        <div>
+          <span>应付</span>
+          <strong>{{ money(cartTotal.total) }}</strong>
+        </div>
+        <button class="checkout-primary-button" type="button" :disabled="cartRows.length === 0 || payCreating" @click="placeOrder">
+          {{ payCreating ? '处理中' : (createdOrder ? '重新支付' : '去支付') }}
+        </button>
+      </div>
       <van-notice-bar v-if="checkoutDone" mode="closeable" type="success" text="支付订单创建成功，可打开支付页完成付款。" />
     </van-popup>
     </template>
@@ -766,6 +837,14 @@ function findSku(product, skuId = null) {
 
 function cartSkuDesc(row) {
   return `${row.product.merchantName || ""}${row.sku?.skuName ? " · " + row.sku.skuName : ""}`;
+}
+
+function cartMerchantName(row) {
+  return row?.product?.merchantName || row?.product?.merchantNo || "精选商家";
+}
+
+function cartSkuName(row) {
+  return row?.sku?.skuName || row?.sku?.skuCode || "默认规格";
 }
 
 function normalizedBackendBaseUrl() {
@@ -1189,6 +1268,14 @@ function orderStatusTag(status) {
     REFUNDED: "warning", PENDING: "danger"
   };
   return map[status] || "default";
+}
+
+function visibleOrderItems(order) {
+  return (order?.items || []).slice(0, 2);
+}
+
+function hiddenOrderItemCount(order) {
+  return Math.max((order?.items?.length || 0) - 2, 0);
 }
 
 function openPayForOrder(order) {
