@@ -302,8 +302,11 @@
       </div>
     </van-popup>
 
-    <van-popup v-model:show="showDetail" position="bottom" round closeable class="detail-popup">
+    <van-popup v-model:show="showDetail" position="bottom" round class="detail-popup">
       <template v-if="selectedProduct">
+        <button class="detail-close-button" type="button" aria-label="关闭商品详情" @click="showDetail = false">
+          <van-icon name="cross" />
+        </button>
         <van-swipe class="detail-image-swipe" indicator-color="#0f766e">
           <van-swipe-item v-for="image in selectedProduct.images" :key="image">
             <img class="detail-image" :src="image" :alt="selectedProduct.name" />
@@ -672,6 +675,7 @@ const lastSyncedCart = ref({});
 const pendingAddToCartProduct = ref(null);
 const pendingBuyNow = ref(false);
 const savedCartBeforeBuyNow = ref(null);
+const checkoutMode = ref("cart");
 const showOrders = ref(false);
 const myOrders = ref([]);
 
@@ -1437,16 +1441,17 @@ async function buyNow(product) {
     showToast("请先登录");
     return;
   }
-  // 保存现有购物车，用单个商品替换
+  // 立即购买只临时占用结算视图，不写入服务端购物车。
+  checkoutMode.value = "buyNow";
   savedCartBeforeBuyNow.value = { ...cart.value };
   const key = cartKey(product, sku);
   cart.value = { [key]: 1 };
   lastSyncedCart.value = { [key]: 1 };
-  if (customerUser.value) {
-    persistCartItem(product.id, 1, product, sku).catch(() => {});
-  }
   const checkoutAddress = await ensureCheckoutAddress();
-  if (!checkoutAddress) return;
+  if (!checkoutAddress) {
+    restoreCartAfterBuyNow();
+    return;
+  }
   showCheckout.value = true;
 }
 
@@ -1508,6 +1513,8 @@ async function openCheckout() {
     showToast("请先结算同一商家的商品");
     return;
   }
+  checkoutMode.value = "cart";
+  savedCartBeforeBuyNow.value = null;
   showCart.value = false;
   const checkoutAddress = await ensureCheckoutAddress();
   if (!checkoutAddress) return;
@@ -1661,14 +1668,18 @@ async function placeOrder() {
 
     createdOrder.value = order;
     localStorage.setItem(storageKeys.lastOrderNo, order.orderNo);
-    // 下单成功清空购物车
-    cart.value = {};
-    lastSyncedCart.value = {};
-    if (customerUser.value) {
-      try {
-        const backend = normalizedBackendBaseUrl();
-        await fetch(`${backend}/api/mall/cart`, { method: "DELETE", headers: authHeaders() });
-      } catch { /* 非关键 */ }
+    checkoutDone.value = true;
+    if (checkoutMode.value === "buyNow") {
+      restoreCartAfterBuyNow();
+    } else {
+      cart.value = {};
+      lastSyncedCart.value = {};
+      if (customerUser.value) {
+        try {
+          const backend = normalizedBackendBaseUrl();
+          await fetch(`${backend}/api/mall/cart`, { method: "DELETE", headers: authHeaders() });
+        } catch { /* 非关键 */ }
+      }
     }
     showCheckout.value = false;
     // 直接跳转到支付页面
@@ -1716,14 +1727,23 @@ function goHome() {
   window.location.href = "/";
 }
 
+function restoreCartAfterBuyNow() {
+  if (!savedCartBeforeBuyNow.value) return;
+  cart.value = savedCartBeforeBuyNow.value;
+  lastSyncedCart.value = { ...savedCartBeforeBuyNow.value };
+  savedCartBeforeBuyNow.value = null;
+  checkoutMode.value = "cart";
+}
+
 // 立即购买模式下关闭结算弹窗时恢复原购物车
 watch(showCheckout, (visible) => {
-  if (!visible && savedCartBeforeBuyNow.value) {
+  if (!visible && checkoutMode.value === "buyNow" && savedCartBeforeBuyNow.value) {
     if (!checkoutDone.value) {
-      cart.value = savedCartBeforeBuyNow.value;
-      lastSyncedCart.value = { ...savedCartBeforeBuyNow.value };
+      restoreCartAfterBuyNow();
+    } else {
+      savedCartBeforeBuyNow.value = null;
+      checkoutMode.value = "cart";
     }
-    savedCartBeforeBuyNow.value = null;
   }
 });
 
