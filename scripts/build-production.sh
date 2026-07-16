@@ -20,17 +20,17 @@ mvn -q -DskipTests package
 cp target/payment-gateway-api-0.0.1-SNAPSHOT.jar "$DIST_DIR/backend/payment-gateway-api.jar"
 
 cd "$ROOT_DIR/mall"
-VITE_API_BASE_URL="" npm run build
+VITE_API_BASE_URL="https://api.linsy.online" npm run build
 mkdir -p "$DIST_DIR/frontend/mall"
 cp -R dist/. "$DIST_DIR/frontend/mall/"
 
 cd "$ROOT_DIR/merchant"
-VITE_API_BASE_URL="https://merchant.linsy.online" npm run build
+VITE_API_BASE_URL="https://api.linsy.online" npm run build
 mkdir -p "$DIST_DIR/frontend/merchant"
 cp -R dist/. "$DIST_DIR/frontend/merchant/"
 
 cd "$ROOT_DIR/payment-gateway-admin"
-VITE_API_BASE_URL="https://admin.linsy.online" npm run build
+VITE_API_BASE_URL="https://api.linsy.online" npm run build
 mkdir -p "$DIST_DIR/frontend/admin"
 cp -R dist/. "$DIST_DIR/frontend/admin/"
 
