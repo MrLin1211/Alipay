@@ -1,9 +1,15 @@
 <template>
 	<view class="orders-page">
-		<view class="order-tabs">
+		<view v-if="loggedIn" class="order-tabs">
 			<text v-for="(tab, index) in tabs" :key="tab" :class="['order-tab', { active: index === 0 }]">{{ tab }}</text>
 		</view>
-		<view class="placeholder-content">
+		<view v-if="!loggedIn" class="placeholder-content">
+			<view class="placeholder-icon">人</view>
+			<text class="placeholder-title">登录后查看订单</text>
+			<text class="placeholder-desc">手机号登录后可同步全部订单状态</text>
+			<button class="login-button" @click="openAuth">登录 / 注册</button>
+		</view>
+		<view v-else class="placeholder-content">
 			<view class="placeholder-icon">单</view>
 			<text class="placeholder-title">暂无订单</text>
 			<text class="placeholder-desc">完成购物后，订单状态会在这里展示</text>
@@ -12,7 +18,20 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { getStoredToken } from '@/utils/auth.js'
+
 const tabs = ['全部', '待支付', '待发货', '待收货']
+const loggedIn = ref(false)
+
+function openAuth() {
+	uni.navigateTo({ url: '/pages/auth/auth?mode=login' })
+}
+
+onShow(() => {
+	loggedIn.value = Boolean(getStoredToken())
+})
 </script>
 
 <style scoped>
@@ -25,4 +44,5 @@ const tabs = ['全部', '待支付', '待发货', '待收货']
 .placeholder-icon { display: flex; align-items: center; justify-content: center; width: 140rpx; height: 140rpx; border-radius: 44rpx; background: #e4f0ee; color: #0f766e; font-size: 44rpx; font-weight: 800; }
 .placeholder-title { margin-top: 32rpx; color: #17202a; font-size: 36rpx; font-weight: 800; }
 .placeholder-desc { margin-top: 16rpx; color: #8a949b; font-size: 25rpx; }
+.login-button { margin-top: 34rpx; padding: 0 42rpx; border: 0; border-radius: 38rpx; background: #0f766e; color: #fff; font-size: 25rpx; line-height: 76rpx; }
 </style>

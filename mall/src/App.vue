@@ -968,6 +968,35 @@ function openAuth(mode) {
   showAuth.value = true;
 }
 
+function clearCustomerSession() {
+  customerToken.value = "";
+  customerUser.value = null;
+  localStorage.removeItem(storageKeys.customerToken);
+  localStorage.removeItem(storageKeys.customerUser);
+  cart.value = {};
+  lastSyncedCart.value = {};
+  pendingAddToCartProduct.value = null;
+  showUserMenu.value = false;
+}
+
+function isUnauthorizedError(error) {
+  return error instanceof Error && (
+    error.status === 401
+    || error.message.includes("请先登录")
+    || error.message.includes("登录已失效")
+  );
+}
+
+function handleCustomerApiError(error, fallbackMessage) {
+  if (isUnauthorizedError(error)) {
+    clearCustomerSession();
+    openAuth("login");
+    showToast("登录已失效，请重新登录");
+    return;
+  }
+  showToast(error instanceof Error && error.message ? error.message : fallbackMessage);
+}
+
 async function submitAuth() {
   const phone = authForm.value.phone.trim();
   const password = authForm.value.password;
@@ -1043,13 +1072,7 @@ async function logoutCustomer() {
       headers: customerToken.value ? { Authorization: `Bearer ${customerToken.value}` } : {}
     });
   } finally {
-    customerToken.value = "";
-    customerUser.value = null;
-    localStorage.removeItem(storageKeys.customerToken);
-    localStorage.removeItem(storageKeys.customerUser);
-    cart.value = {};
-    lastSyncedCart.value = {};
-    pendingAddToCartProduct.value = null;
+    clearCustomerSession();
     showUserMenu.value = false;
     // 清密码，保留手机号方便下次登录
     authForm.value.password = "";
@@ -1070,8 +1093,8 @@ async function openMyOrders() {
     const backend = normalizedBackendBaseUrl();
     const response = await fetch(`${backend}/api/mall/product-orders`, { headers: authHeaders() });
     myOrders.value = await readResponseJson(response);
-  } catch {
-    showToast("加载订单失败");
+  } catch (error) {
+    handleCustomerApiError(error, "加载订单失败");
   } finally {
     ordersLoading.value = false;
   }
@@ -1092,8 +1115,8 @@ async function loadAddresses() {
     const response = await fetch(`${backend}/api/mall/addresses`, { headers: authHeaders() });
     addresses.value = await readResponseJson(response);
     syncSelectedAddress();
-  } catch {
-    showToast("加载地址失败");
+  } catch (error) {
+    handleCustomerApiError(error, "加载地址失败");
   } finally {
     addressesLoading.value = false;
   }
@@ -1561,10 +1584,14 @@ async function readResponseJson(response) {
   if (!response.ok) {
     try {
       const body = JSON.parse(text);
-      throw new Error(body.message || body.error || text || `HTTP ${response.status}`);
+      const error = new Error(body.message || body.error || text || `HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
     } catch (error) {
       if (error instanceof Error && !error.message.includes("Unexpected")) throw error;
-      throw new Error(text || `HTTP ${response.status}`);
+      const fallbackError = new Error(text || `HTTP ${response.status}`);
+      fallbackError.status = response.status;
+      throw fallbackError;
     }
   }
   return text ? JSON.parse(text) : {};

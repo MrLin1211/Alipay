@@ -6,14 +6,6 @@
 					<text class="eyebrow">品质生活 · 每日优选</text>
 					<text class="brand-title">商城</text>
 				</view>
-				<view class="header-action" @click="goProfile">
-					<text class="header-action-icon">人</text>
-				</view>
-			</view>
-
-			<view class="search-box" @click="openSearch">
-				<text class="search-icon">⌕</text>
-				<text class="search-placeholder">搜索手机、家电、生鲜、运动...</text>
 			</view>
 		</view>
 
@@ -25,7 +17,7 @@
 					<text class="hero-label">SUMMER PICKS</text>
 					<text class="hero-title">全品类好物\n一站购齐</text>
 					<text class="hero-subtitle">精选商家直供 · 放心选购</text>
-					<view class="hero-button" @click="goCategory">
+					<view class="hero-button" @click="goCategory('all')">
 						<text>立即选购</text>
 						<text class="hero-button-arrow">›</text>
 					</view>
@@ -41,7 +33,7 @@
 					v-for="category in categories"
 					:key="category.name"
 					class="category-item"
-					@click="goCategory"
+					@click="goCategory(category.id)"
 				>
 					<view class="category-icon" :style="{ background: category.background }">
 						<text>{{ category.icon }}</text>
@@ -65,25 +57,39 @@
 					<text class="section-kicker">RECOMMENDED</text>
 					<text class="section-title">为你推荐</text>
 				</view>
-				<view class="section-more" @click="goCategory">
+				<view class="section-more" @click="goCategory('all')">
 					<text>查看全部</text>
 					<text>›</text>
 				</view>
 			</view>
 
-			<view class="goods-grid">
+			<view v-if="loading" class="state-panel compact">
+				<view class="loading-dot"></view>
+				<text>正在加载商品...</text>
+			</view>
+			<view v-else-if="errorMessage" class="state-panel compact">
+				<text class="state-title">商品加载失败</text>
+				<text class="state-desc">{{ errorMessage }}</text>
+				<button class="retry-button" @click="loadCatalog">重新加载</button>
+			</view>
+			<view v-else-if="products.length === 0" class="state-panel compact">
+				<text class="state-title">暂时没有在售商品</text>
+				<text class="state-desc">商家上架商品后会在这里展示</text>
+			</view>
+			<view v-else class="goods-grid">
 				<view v-for="product in products" :key="product.id" class="goods-card" @click="openProduct(product)">
-					<view class="goods-visual" :style="{ background: product.background }">
-						<text class="goods-visual-icon">{{ product.icon }}</text>
-						<text v-if="product.badge" class="goods-badge">{{ product.badge }}</text>
+					<view class="goods-visual">
+						<image v-if="product.image && !failedImages[product.id]" class="goods-image" :src="product.image" mode="aspectFill" @error="markImageFailed(product.id)" />
+						<view v-else class="goods-image-fallback"><text>{{ product.name.slice(0, 2) }}</text></view>
+						<text v-if="product.fast" class="goods-badge">极速达</text>
 					</view>
 					<view class="goods-body">
 						<text class="goods-name">{{ product.name }}</text>
-						<text class="goods-merchant">{{ product.merchant }}</text>
+						<text class="goods-merchant">{{ product.merchantName }}</text>
 						<view class="price-row">
 							<text class="price-symbol">¥</text>
-							<text class="price-value">{{ product.price }}</text>
-							<text class="price-origin">¥{{ product.originPrice }}</text>
+							<text class="price-value">{{ formatMoney(product.price) }}</text>
+							<text class="stock-text">库存 {{ product.stock }}</text>
 						</view>
 					</view>
 				</view>
@@ -93,13 +99,16 @@
 </template>
 
 <script setup>
-const categories = [
-	{ name: '数码', icon: '⌁', background: 'linear-gradient(135deg, #e8f7f4, #ccece7)' },
-	{ name: '家电', icon: '⌂', background: 'linear-gradient(135deg, #fff3e6, #ffe0bd)' },
-	{ name: '生鲜', icon: '叶', background: 'linear-gradient(135deg, #eef8e8, #d7edca)' },
-	{ name: '美妆', icon: '✦', background: 'linear-gradient(135deg, #fff0f2, #ffd8dd)' },
-	{ name: '运动', icon: '跑', background: 'linear-gradient(135deg, #eef1ff, #d8defd)' }
-]
+import { reactive, ref } from 'vue'
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
+import { fetchCategories, fetchProducts } from '@/api/catalog.js'
+import { formatMoney, normalizeCategory, normalizeProduct } from '@/utils/catalog.js'
+
+const categories = ref([])
+const products = ref([])
+const loading = ref(false)
+const errorMessage = ref('')
+const failedImages = reactive({})
 
 const benefits = [
 	{ icon: '✓', title: '品质保障', desc: '精选正品' },
@@ -107,41 +116,51 @@ const benefits = [
 	{ icon: '安', title: '售后无忧', desc: '放心购买' }
 ]
 
-const products = [
-	{ id: 1, icon: '耳机', badge: '热卖', name: '无线降噪蓝牙耳机 长续航版', merchant: '数码优选店', price: '399', originPrice: '499', background: 'linear-gradient(145deg, #e8eef4, #cfd9e4)' },
-	{ id: 2, icon: '咖啡', badge: '新品', name: '精品挂耳咖啡 轻盈果香组合装', merchant: '每日鲜享', price: '69', originPrice: '89', background: 'linear-gradient(145deg, #f4eadc, #dbc7ac)' },
-	{ id: 3, icon: '音箱', badge: '', name: '智能桌面音箱 沉浸式立体声', merchant: '智慧生活馆', price: '259', originPrice: '329', background: 'linear-gradient(145deg, #e6e4ee, #cbc7d7)' },
-	{ id: 4, icon: '跑鞋', badge: '优惠', name: '轻量缓震运动跑鞋 日常训练款', merchant: '活力运动', price: '329', originPrice: '429', background: 'linear-gradient(145deg, #e7eee8, #cbd8cd)' }
-]
+async function loadCatalog(showLoading = true) {
+	if (showLoading) loading.value = true
+	errorMessage.value = ''
+	try {
+		const [categoryData, productData] = await Promise.all([
+			fetchCategories(),
+			fetchProducts({ page: 0, size: 6 })
+		])
+		categories.value = (Array.isArray(categoryData) ? categoryData : []).slice(0, 5).map(normalizeCategory)
+		products.value = (productData?.content || []).map(normalizeProduct)
+	} catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : '网络连接失败，请稍后重试'
+	} finally {
+		loading.value = false
+	}
+}
 
-function goCategory() {
+function goCategory(categoryId = 'all') {
+	const normalizedCategoryId = typeof categoryId === 'string' && categoryId ? categoryId : 'all'
+	uni.setStorageSync('mall_selected_category', normalizedCategoryId)
 	uni.switchTab({ url: '/pages/category/category' })
 }
 
-function goProfile() {
-	uni.switchTab({ url: '/pages/profile/profile' })
-}
-
-function openSearch() {
-	uni.showToast({ title: '商品搜索即将接入', icon: 'none' })
-}
-
 function openProduct(product) {
-	uni.showToast({ title: `即将查看：${product.name}`, icon: 'none' })
+	uni.navigateTo({ url: `/pages/product/detail?id=${encodeURIComponent(product.id)}` })
 }
+
+function markImageFailed(productId) {
+	failedImages[productId] = true
+}
+
+onLoad(() => loadCatalog())
+
+onPullDownRefresh(async () => {
+	await loadCatalog(false)
+	uni.stopPullDownRefresh()
+})
 </script>
 
 <style scoped>
 .home-page { min-height: 100vh; background: #f3f5f7; color: #17202a; }
-.home-header { padding: calc(28rpx + env(safe-area-inset-top)) 28rpx 18rpx; background: linear-gradient(180deg, #f8faf9 0%, #f3f5f7 100%); }
-.brand-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22rpx; }
+.home-header { padding: calc(28rpx + env(safe-area-inset-top)) 28rpx 22rpx; background: linear-gradient(180deg, #f8faf9 0%, #f3f5f7 100%); }
+.brand-row { display: flex; align-items: center; justify-content: space-between; }
 .eyebrow { display: block; margin-bottom: 5rpx; color: #d9480f; font-size: 20rpx; font-weight: 700; letter-spacing: 2rpx; }
 .brand-title { display: block; font-size: 48rpx; font-weight: 800; line-height: 1.1; }
-.header-action { display: flex; align-items: center; justify-content: center; width: 76rpx; height: 76rpx; border-radius: 50%; background: #fff; box-shadow: 0 10rpx 30rpx rgba(25, 45, 55, .09); }
-.header-action-icon { display: flex; align-items: center; justify-content: center; width: 42rpx; height: 42rpx; border: 3rpx solid #0f766e; border-radius: 50%; color: #0f766e; font-size: 19rpx; font-weight: 700; }
-.search-box { display: flex; align-items: center; height: 76rpx; padding: 0 26rpx; border: 1rpx solid #e2e7ea; border-radius: 38rpx; background: #fff; box-shadow: 0 8rpx 24rpx rgba(32, 52, 60, .05); }
-.search-icon { margin-right: 16rpx; color: #687681; font-size: 42rpx; line-height: 1; transform: rotate(-20deg); }
-.search-placeholder { color: #8a959e; font-size: 27rpx; }
 .page-content { padding: 0 24rpx 38rpx; }
 .hero-card { position: relative; height: 330rpx; overflow: hidden; padding: 38rpx; border-radius: 32rpx; background: linear-gradient(135deg, #0a5f5a 0%, #0f8178 55%, #17a193 100%); box-shadow: 0 18rpx 40rpx rgba(15, 118, 110, .22); }
 .hero-orb { position: absolute; border-radius: 50%; background: rgba(255,255,255,.08); }
@@ -173,8 +192,9 @@ function openProduct(product) {
 .section-more { display: flex; align-items: center; gap: 8rpx; padding-bottom: 4rpx; color: #75808a; font-size: 23rpx; }
 .goods-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18rpx; }
 .goods-card { overflow: hidden; border-radius: 26rpx; background: #fff; box-shadow: 0 10rpx 26rpx rgba(27, 46, 55, .06); }
-.goods-visual { position: relative; display: flex; align-items: center; justify-content: center; height: 250rpx; }
-.goods-visual-icon { color: rgba(35, 48, 56, .68); font-size: 38rpx; font-weight: 800; letter-spacing: 2rpx; }
+.goods-visual { position: relative; height: 250rpx; overflow: hidden; background: linear-gradient(145deg, #e7ecef, #d3dce1); }
+.goods-image { width: 100%; height: 100%; }
+.goods-image-fallback { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: #627079; font-size: 34rpx; font-weight: 800; }
 .goods-badge { position: absolute; top: 16rpx; left: 16rpx; padding: 6rpx 13rpx; border-radius: 18rpx; background: #d9480f; color: #fff; font-size: 18rpx; font-weight: 700; }
 .goods-body { padding: 20rpx; }
 .goods-name { display: -webkit-box; min-height: 70rpx; overflow: hidden; color: #222d35; font-size: 25rpx; font-weight: 700; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
@@ -182,5 +202,12 @@ function openProduct(product) {
 .price-row { display: flex; align-items: baseline; margin-top: 14rpx; color: #d9480f; }
 .price-symbol { font-size: 21rpx; font-weight: 800; }
 .price-value { font-size: 34rpx; font-weight: 800; }
-.price-origin { margin-left: 9rpx; color: #aeb5ba; font-size: 19rpx; text-decoration: line-through; }
+.stock-text { margin-left: auto; color: #929ba1; font-size: 18rpx; font-weight: 400; }
+.state-panel { display: flex; align-items: center; flex-direction: column; justify-content: center; padding: 70rpx 34rpx; border-radius: 26rpx; background: #fff; text-align: center; }
+.state-panel.compact { min-height: 230rpx; }
+.state-title { color: #26323a; font-size: 28rpx; font-weight: 800; }
+.state-desc { max-width: 520rpx; margin-top: 12rpx; color: #879199; font-size: 23rpx; line-height: 1.55; }
+.retry-button { margin-top: 24rpx; padding: 0 34rpx; border: 0; border-radius: 34rpx; background: #0f766e; color: #fff; font-size: 23rpx; line-height: 64rpx; }
+.loading-dot { width: 34rpx; height: 34rpx; margin-bottom: 18rpx; border: 5rpx solid #d8e9e6; border-top-color: #0f766e; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>

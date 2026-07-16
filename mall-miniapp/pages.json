@@ -4,19 +4,24 @@
 			"path": "pages/index/index",
 			"style": {
 				"navigationStyle": "custom",
-				"navigationBarTitleText": "商城首页"
+				"navigationBarTitleText": "商城首页",
+				"enablePullDownRefresh": true,
+				"backgroundTextStyle": "dark"
 			}
 		},
 		{
 			"path": "pages/category/category",
 			"style": {
-				"navigationBarTitleText": "商品分类"
+				"navigationBarTitleText": "商品分类",
+				"enablePullDownRefresh": true,
+				"onReachBottomDistance": 120
 			}
 		},
 		{
 			"path": "pages/cart/cart",
 			"style": {
-				"navigationBarTitleText": "购物车"
+				"navigationBarTitleText": "购物车",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
@@ -30,6 +35,20 @@
 			"style": {
 				"navigationBarTitleText": "我的"
 			}
+		},
+		{
+			"path": "pages/auth/auth",
+			"style": {
+				"navigationBarTitleText": "登录商城",
+				"navigationBarBackgroundColor": "#f8faf9"
+			}
+		},
+		{
+			"path": "pages/product/detail",
+			"style": {
+				"navigationBarTitleText": "商品详情",
+				"navigationBarBackgroundColor": "#ffffff"
+			}
 		}
 	],
 	"tabBar": {
@@ -38,11 +57,36 @@
 		"backgroundColor": "#ffffff",
 		"borderStyle": "white",
 		"list": [
-			{ "pagePath": "pages/index/index", "text": "首页" },
-			{ "pagePath": "pages/category/category", "text": "分类" },
-			{ "pagePath": "pages/cart/cart", "text": "购物车" },
-			{ "pagePath": "pages/orders/orders", "text": "订单" },
-			{ "pagePath": "pages/profile/profile", "text": "我的" }
+			{
+				"pagePath": "pages/index/index",
+				"text": "首页",
+				"iconPath": "static/tabbar/home.png",
+				"selectedIconPath": "static/tabbar/home-active.png"
+			},
+			{
+				"pagePath": "pages/category/category",
+				"text": "分类",
+				"iconPath": "static/tabbar/category.png",
+				"selectedIconPath": "static/tabbar/category-active.png"
+			},
+			{
+				"pagePath": "pages/cart/cart",
+				"text": "购物车",
+				"iconPath": "static/tabbar/cart.png",
+				"selectedIconPath": "static/tabbar/cart-active.png"
+			},
+			{
+				"pagePath": "pages/orders/orders",
+				"text": "订单",
+				"iconPath": "static/tabbar/orders.png",
+				"selectedIconPath": "static/tabbar/orders-active.png"
+			},
+			{
+				"pagePath": "pages/profile/profile",
+				"text": "我的",
+				"iconPath": "static/tabbar/profile.png",
+				"selectedIconPath": "static/tabbar/profile-active.png"
+			}
 		]
 	},
 	"globalStyle": {
