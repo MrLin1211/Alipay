@@ -34,6 +34,6 @@ VITE_API_BASE_URL="https://api.linsy.online" npm run build
 mkdir -p "$DIST_DIR/frontend/admin"
 cp -R dist/. "$DIST_DIR/frontend/admin/"
 
-cp -R "$ROOT_DIR/deploy" "$DIST_DIR/deploy"
+DIST_DIR="$DIST_DIR" sh "$ROOT_DIR/scripts/build-miniapp-h5-production.sh"
 
 echo "Production artifacts written to $DIST_DIR"

@@ -16,7 +16,7 @@
 				<text class="summary-label">查看全部</text>
 			</view>
 			<view class="summary-divider"></view>
-			<view class="summary-item" @click="showComingSoon('收货地址')">
+			<view class="summary-item" @click="goAddresses">
 				<text class="summary-value">地址</text>
 				<text class="summary-label">收货管理</text>
 			</view>
@@ -93,10 +93,19 @@ function goCart() {
 	uni.switchTab({ url: '/pages/cart/cart' })
 }
 
+function goAddresses() {
+	if (!requireLogin()) return
+	uni.navigateTo({ url: '/pages/address/list' })
+}
+
 function handleMenu(item) {
 	if (item.auth && !requireLogin()) return
 	if (item.key === 'orders') {
 		goOrders()
+		return
+	}
+	if (item.key === 'address') {
+		goAddresses()
 		return
 	}
 	showComingSoon(item.title)

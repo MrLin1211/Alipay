@@ -252,7 +252,10 @@
     </van-popup>
 
     <van-popup v-model:show="showOrders" position="bottom" round closeable class="cart-popup" :style="{ height: '70vh' }">
-      <h2>我的订单</h2>
+      <div class="popup-title-row">
+        <h2>我的订单</h2>
+        <van-button size="small" round plain color="#0f766e" :loading="ordersLoading" @click="openMyOrders">刷新</van-button>
+      </div>
       <van-loading v-if="ordersLoading" class="catalog-loading" color="#0f766e">加载订单中...</van-loading>
       <van-empty v-else-if="myOrders.length === 0" description="暂无订单" />
       <div v-else class="cart-list order-list">
@@ -295,11 +298,117 @@
               <strong>{{ money(po.totalAmount) }}</strong>
             </div>
           </div>
-          <div v-if="hasPendingPayment(po)" class="order-pay-bar">
-            <button class="order-pay-button" type="button" @click="openPayForOrder(po)">去支付</button>
+          <div class="order-action-row">
+            <button class="order-secondary-button" type="button" @click="copyOrderNo(po.orderNo)">复制单号</button>
+            <button class="order-secondary-button" type="button" @click="openOrderDetail(po)">查看详情</button>
+            <button
+              v-if="canPayOrder(po)"
+              class="order-pay-button"
+              type="button"
+              :disabled="isOrderPayCreating(po)"
+              @click="openPayForOrder(po)"
+            >
+              {{ isOrderPayCreating(po) ? '处理中...' : '去支付' }}
+            </button>
           </div>
         </div>
       </div>
+    </van-popup>
+
+    <van-popup v-model:show="showOrderDetail" position="bottom" round closeable class="order-detail-popup" :style="{ height: '82vh' }">
+      <template v-if="selectedOrder">
+        <div class="popup-title-row">
+          <div>
+            <h2>订单详情</h2>
+            <small>{{ selectedOrder.orderNo }}</small>
+          </div>
+          <van-tag :type="orderStatusTag(selectedOrder.status)" size="medium">{{ orderStatusLabel(selectedOrder.status) }}</van-tag>
+        </div>
+
+        <div class="order-detail-scroll">
+          <section class="order-detail-section">
+            <div class="order-detail-summary">
+              <div>
+                <span>实付金额</span>
+                <strong>{{ money(selectedOrder.totalAmount) }}</strong>
+              </div>
+              <div>
+                <span>商品件数</span>
+                <strong>{{ orderItemCount(selectedOrder) }}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="order-detail-section">
+            <h3>收货信息</h3>
+            <div class="order-detail-address">
+              <strong>{{ selectedOrder.shippingName || '-' }} {{ selectedOrder.shippingPhone || '' }}</strong>
+              <span>{{ selectedOrder.shippingAddress || '暂无收货地址' }}</span>
+            </div>
+          </section>
+
+          <section class="order-detail-section">
+            <h3>商品明细</h3>
+            <div class="order-detail-items">
+              <div v-for="item in selectedOrder.items || []" :key="item.id" class="order-item-row">
+                <img :src="item.productImage" :alt="item.productName" />
+                <div>
+                  <strong>{{ item.productName }}</strong>
+                  <span>{{ item.skuName || item.skuCode || '默认规格' }}</span>
+                  <em>{{ money(item.unitPrice) }}</em>
+                </div>
+                <small>x{{ item.quantity }}</small>
+              </div>
+            </div>
+          </section>
+
+          <section class="order-detail-section">
+            <h3>费用信息</h3>
+            <div class="order-detail-lines">
+              <div><span>商品金额</span><strong>{{ money(selectedOrder.totalAmount) }}</strong></div>
+              <div><span>优惠金额</span><strong>-{{ money(selectedOrder.discountAmount) }}</strong></div>
+              <div><span>运费</span><strong>{{ money(selectedOrder.shippingFee) }}</strong></div>
+            </div>
+          </section>
+
+          <section class="order-detail-section">
+            <h3>订单信息</h3>
+            <div class="order-detail-lines">
+              <div><span>订单编号</span><strong>{{ selectedOrder.orderNo }}</strong></div>
+              <div><span>商家</span><strong>{{ selectedOrder.merchantName || selectedOrder.merchantNo || '-' }}</strong></div>
+              <div><span>创建时间</span><strong>{{ selectedOrder.createdAt || '-' }}</strong></div>
+              <div><span>支付时间</span><strong>{{ selectedOrder.paidAt || '-' }}</strong></div>
+              <div><span>发货时间</span><strong>{{ selectedOrder.shippedAt || '-' }}</strong></div>
+              <div><span>完成时间</span><strong>{{ selectedOrder.completedAt || '-' }}</strong></div>
+            </div>
+          </section>
+
+          <section v-if="selectedOrder.payments?.length" class="order-detail-section">
+            <h3>支付记录</h3>
+            <div class="order-payment-list">
+              <div v-for="payment in selectedOrder.payments" :key="payment.id || payment.orderNo" class="order-payment-card">
+                <div><span>支付单号</span><strong>{{ payment.orderNo }}</strong></div>
+                <div><span>支付状态</span><strong>{{ orderStatusText(payment.status) }}</strong></div>
+                <div><span>平台单号</span><strong>{{ payment.platTradeNo || '-' }}</strong></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="order-detail-actions">
+          <button class="order-secondary-button" type="button" @click="copyOrderNo(selectedOrder.orderNo)">复制单号</button>
+          <button class="order-secondary-button" type="button" :disabled="orderDetailLoading" @click="refreshSelectedOrder">刷新状态</button>
+          <button
+            v-if="canPayOrder(selectedOrder)"
+            class="order-pay-button"
+            type="button"
+            :disabled="isOrderPayCreating(selectedOrder)"
+            @click="openPayForOrder(selectedOrder)"
+          >
+            {{ isOrderPayCreating(selectedOrder) ? '处理中...' : '去支付' }}
+          </button>
+        </div>
+      </template>
     </van-popup>
 
     <van-popup v-model:show="showDetail" position="bottom" round class="detail-popup">
@@ -678,6 +787,10 @@ const savedCartBeforeBuyNow = ref(null);
 const checkoutMode = ref("cart");
 const showOrders = ref(false);
 const myOrders = ref([]);
+const showOrderDetail = ref(false);
+const selectedOrder = ref(null);
+const orderDetailLoading = ref(false);
+const orderPayCreatingNo = ref("");
 
 const showAddresses = ref(false);
 const addresses = ref([]);
@@ -807,7 +920,7 @@ const resultTitle = computed(() => {
 const resultDescription = computed(() => {
   if (!resultOrderNo) return "没有找到商户订单号，请返回商城重新下单。";
   if (resultState.value === "success") return "后端已收到支付成功状态，订单链路已闭环。";
-  if (resultState.value === "failed") return "当前订单未完成支付，可以返回商城重新创建订单。";
+  if (resultState.value === "failed") return "当前订单未完成支付，可以返回订单列表重新支付。";
   return "如果已经完成付款，稍后刷新状态即可看到最新结果。";
 });
 
@@ -1305,22 +1418,148 @@ function hiddenOrderItemCount(order) {
   return Math.max((order?.items?.length || 0) - 2, 0);
 }
 
-function openPayForOrder(order) {
-  if (!order) {
+function orderItemCount(order) {
+  return (order?.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+}
+
+function latestPayment(order) {
+  const payments = Array.isArray(order?.payments) ? order.payments : [];
+  return [...payments].sort((a, b) => {
+    const timeResult = String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+    return timeResult || Number(b.id || 0) - Number(a.id || 0);
+  })[0] || null;
+}
+
+function canPayOrder(order) {
+  return order?.status === "PENDING";
+}
+
+function isOrderPayCreating(order) {
+  return Boolean(order?.orderNo) && orderPayCreatingNo.value === order.orderNo;
+}
+
+function openPaymentPage(paymentOrderNo) {
+  localStorage.setItem(storageKeys.lastOrderNo, paymentOrderNo);
+  window.location.href = `${backendPublicBaseUrl()}/api/mall/pay-orders/${encodeURIComponent(paymentOrderNo)}/pay-page`;
+}
+
+function buildOrderPaymentSubject(order) {
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const firstName = items[0]?.productName || `商城订单 ${order?.orderNo || ""}`;
+  const count = orderItemCount(order);
+  const subject = count > 1 ? `${firstName} 等 ${count} 件商品` : firstName;
+  return subject.slice(0, 128);
+}
+
+function buildOrderPaymentPayload(order) {
+  return {
+    productOrderId: order.id,
+    merchantNo: order.merchantNo,
+    totalAmount: Number(Number(order.totalAmount || 0).toFixed(2)),
+    subject: buildOrderPaymentSubject(order),
+    typeIndex: 1,
+    goodsType: 1,
+    payMethodType: "ALIPAY_CN",
+    attachInfo: JSON.stringify({
+      source: "mobile-storefront-repay",
+      productOrderNo: order.orderNo
+    }),
+    returnUrl: frontendResultUrl("")
+  };
+}
+
+async function createPaymentForOrder(order) {
+  const backend = normalizedBackendBaseUrl();
+  const response = await fetch(`${backend}/api/mall/pay-orders`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(buildOrderPaymentPayload(order))
+  });
+  const payment = await readResponseJson(response);
+  const platformResult = parsePlatformResult(payment);
+  if (payment.status !== "CREATE_SUCCESS" || (platformResult.code !== undefined && platformResult.code !== 0)) {
+    throw new Error(platformResult.msg || platformResult.message || "支付单创建失败，请稍后重试");
+  }
+  return payment;
+}
+
+async function openPayForOrder(order) {
+  if (!order?.id || !order?.orderNo || !order?.merchantNo) {
     showToast("订单数据异常");
     return;
   }
-  const payment = order.payments?.[0];
-  if (!payment?.orderNo) {
-    showToast("支付单不存在，请重新下单");
+  if (order.status !== "PENDING" || isOrderPayCreating(order)) return;
+
+  const payment = latestPayment(order);
+  if (payment?.status === "CREATE_SUCCESS" && payment.orderNo) {
+    openPaymentPage(payment.orderNo);
     return;
   }
-  const payPageUrl = `${backendPublicBaseUrl()}/api/mall/pay-orders/${encodeURIComponent(payment.orderNo)}/pay-page`;
-  window.open(payPageUrl, "_blank", "noreferrer");
+
+  if (["SUCCESS", "FINISHED"].includes(payment?.status)) {
+    showToast("支付已完成，正在刷新订单状态");
+    if (selectedOrder.value?.orderNo === order.orderNo) await refreshSelectedOrder();
+    else await openMyOrders();
+    return;
+  }
+  if (["CREATED", "UNKNOWN_NOTIFY"].includes(payment?.status)) {
+    showToast("支付状态确认中，请稍后刷新");
+    return;
+  }
+
+  orderPayCreatingNo.value = order.orderNo;
+  try {
+    const newPayment = await createPaymentForOrder(order);
+    openPaymentPage(newPayment.orderNo);
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : String(error));
+    if (selectedOrder.value?.orderNo === order.orderNo) await refreshSelectedOrder();
+  } finally {
+    orderPayCreatingNo.value = "";
+  }
 }
 
-function hasPendingPayment(order) {
-  return order?.status === "PENDING" && Array.isArray(order.payments) && order.payments.length > 0;
+async function openOrderDetail(order) {
+  if (!order?.orderNo) {
+    showToast("订单数据异常");
+    return;
+  }
+  showOrderDetail.value = true;
+  selectedOrder.value = order;
+  await refreshSelectedOrder();
+}
+
+async function refreshSelectedOrder() {
+  if (!selectedOrder.value?.orderNo) return;
+  orderDetailLoading.value = true;
+  try {
+    const backend = normalizedBackendBaseUrl();
+    const response = await fetch(`${backend}/api/mall/product-orders/${encodeURIComponent(selectedOrder.value.orderNo)}`, {
+      headers: authHeaders()
+    });
+    const detail = await readResponseJson(response);
+    selectedOrder.value = detail;
+    myOrders.value = myOrders.value.map((order) => (
+      order.orderNo === detail.orderNo ? detail : order
+    ));
+  } catch (error) {
+    handleCustomerApiError(error, "刷新订单失败");
+  } finally {
+    orderDetailLoading.value = false;
+  }
+}
+
+async function copyOrderNo(orderNo) {
+  if (!orderNo) {
+    showToast("订单号不存在");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(orderNo);
+    showToast("订单号已复制");
+  } catch {
+    showToast(orderNo);
+  }
 }
 
 function scrollToTop() {

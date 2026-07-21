@@ -253,7 +253,19 @@ function checkout() {
 		uni.showToast({ title: '请先处理已失效或库存不足的商品', icon: 'none' })
 		return
 	}
-	uni.showToast({ title: '确认订单功能即将接入', icon: 'none' })
+	if (merchantGroups.value.length === 1) {
+		openCheckout(merchantGroups.value[0])
+		return
+	}
+	uni.showActionSheet({
+		itemList: merchantGroups.value.map((group) => `${group.name}（${group.items.length}种）`),
+		success: ({ tapIndex }) => openCheckout(merchantGroups.value[tapIndex])
+	})
+}
+
+function openCheckout(group) {
+	if (!group) return
+	uni.navigateTo({ url: `/pages/checkout/checkout?merchantNo=${encodeURIComponent(group.key)}` })
 }
 
 onShow(() => loadCart())
@@ -265,7 +277,7 @@ onPullDownRefresh(async () => {
 </script>
 
 <style scoped>
-.cart-page { min-height: 100vh; padding-bottom: calc(130rpx + env(safe-area-inset-bottom)); background: #f3f5f7; color: #17202a; }
+.cart-page { min-height: 100vh; padding-bottom: calc(130rpx + var(--window-bottom, 0px) + env(safe-area-inset-bottom)); background: #f3f5f7; color: #17202a; }
 .cart-header { display: flex; align-items: flex-end; justify-content: space-between; padding: 26rpx 28rpx 22rpx; background: #f8faf9; }
 .cart-title, .cart-count { display: block; }
 .cart-title { font-size: 40rpx; font-weight: 800; }
@@ -299,7 +311,7 @@ onPullDownRefresh(async () => {
 .stepper-button { width: 58rpx; height: 54rpx; padding: 0; border: 0; border-radius: 0; background: #f4f6f7; color: #344049; font-size: 26rpx; line-height: 54rpx; }
 .stepper-button[disabled] { color: #c4cbd0; }
 .quantity-value { width: 58rpx; color: #26323a; font-size: 23rpx; font-weight: 700; text-align: center; }
-.checkout-bar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 20; display: flex; align-items: center; padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #e5e9eb; background: rgba(255,255,255,.97); }
+.checkout-bar { position: fixed; right: 0; bottom: var(--window-bottom, 0px); left: 0; z-index: 20; display: flex; align-items: center; padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #e5e9eb; background: rgba(255,255,255,.97); }
 .total-copy { flex: 1; }
 .total-label { color: #747f87; font-size: 20rpx; }
 .total-price { display: inline-flex; align-items: baseline; margin-left: 10rpx; color: #d9480f; font-size: 36rpx; font-weight: 800; }

@@ -5,7 +5,7 @@ After=network.target mysql.service
 [Service]
 User=alipay
 WorkingDirectory=/opt/alipay
-EnvironmentFile=/etc/alipay/alipay.env
+EnvironmentFile=/etc/alipay/common.env
 Environment=SERVER_PORT=8081
 ExecStart=/usr/bin/java -jar /opt/alipay/merchant-api.jar
 Restart=always

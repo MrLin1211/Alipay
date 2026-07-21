@@ -13,3 +13,5 @@ admin/dist/
 .DS_Store
 .env
 ios/
+/root.pem
+/ssl/app.linsy.online_nginx/

@@ -1,12 +1,13 @@
 # 生产环境打包和部署说明
 
-本文档按当前线上规则维护：三个前端域名只提供静态页面，所有接口统一走 `https://api.linsy.online`。
+本文档按当前线上规则维护：四个前端域名只提供静态页面，所有接口统一走 `https://api.linsy.online`。
 
 ## 1. 线上域名和服务
 
 | 服务 | 线上地址 | 部署位置 |
 | --- | --- | --- |
 | 商城 | `https://mall.linsy.online` | `/var/www/alipay/mall` |
+| uni-app H5 商城 | `https://app.linsy.online` | `/var/www/alipay/app` |
 | 商家后台 | `https://merchant.linsy.online` | `/var/www/alipay/merchant` |
 | 管理后台 | `https://admin.linsy.online` | `/var/www/alipay/admin` |
 | 商城 API | `https://api.linsy.online/api/mall/**` | `127.0.0.1:8080` |
@@ -15,7 +16,7 @@
 | 支付网关 API | `https://api.linsy.online/api/gateway/**` | `127.0.0.1:8090` |
 | 上传文件访问 | `https://api.linsy.online/uploads/**` | `/var/www/alipay/uploads` |
 
-不要在 `mall.linsy.online`、`merchant.linsy.online`、`admin.linsy.online` 下再配置 API 代理。前端生产构建时应写入 `https://api.linsy.online`。
+不要在 `mall.linsy.online`、`app.linsy.online`、`merchant.linsy.online`、`admin.linsy.online` 下再配置 API 代理。前端生产构建时应写入 `https://api.linsy.online`。
 
 ## 2. 日常上线流程
 
@@ -43,6 +44,18 @@ sh scripts/deploy-production.sh
 
 ```bash
 sh scripts/deploy-production.sh --frontend-only
+```
+
+如果只发布 `mall-miniapp` 的 H5 版本：
+
+```bash
+sh scripts/deploy-production.sh --app-only
+```
+
+首次发布或证书、Nginx 配置有变化时：
+
+```bash
+sh scripts/deploy-production.sh --app-with-config
 ```
 
 如果只改了 Java 后端：
@@ -94,6 +107,7 @@ dist-production/
 │   └── payment-gateway-api.jar
 ├── frontend/
 │   ├── mall/
+│   ├── app/
 │   ├── merchant/
 │   └── admin/
 └── deploy/

@@ -27,7 +27,8 @@
 		{
 			"path": "pages/orders/orders",
 			"style": {
-				"navigationBarTitleText": "我的订单"
+				"navigationBarTitleText": "我的订单",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
@@ -49,6 +50,22 @@
 				"navigationBarTitleText": "商品详情",
 				"navigationBarBackgroundColor": "#ffffff"
 			}
+		},
+		{
+			"path": "pages/address/list",
+			"style": { "navigationBarTitleText": "收货地址" }
+		},
+		{
+			"path": "pages/address/edit",
+			"style": { "navigationBarTitleText": "编辑收货地址" }
+		},
+		{
+			"path": "pages/checkout/checkout",
+			"style": { "navigationBarTitleText": "确认订单" }
+		},
+		{
+			"path": "pages/orders/detail",
+			"style": { "navigationBarTitleText": "订单详情" }
 		}
 	],
 	"tabBar": {

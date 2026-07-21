@@ -6,6 +6,7 @@ DIST_DIR="$ROOT_DIR/dist-production"
 REMOTE="${REMOTE:-root@119.45.58.43}"
 REMOTE_RELEASE_DIR="${REMOTE_RELEASE_DIR:-/tmp/alipay-release}"
 PACKAGE_PATH="${PACKAGE_PATH:-/tmp/alipay-release.tar.gz}"
+SSH_IDENTITY="${SSH_IDENTITY:-}"
 MODE="all"
 SKIP_BUILD=0
 
@@ -17,6 +18,8 @@ Usage:
 Options:
   --all             Build and deploy frontend and backend. Default.
   --frontend-only   Deploy only mall, merchant, and admin frontend files.
+  --app-only        Build and deploy only the mall-miniapp H5 frontend.
+  --app-with-config Build and deploy mall-miniapp H5, nginx config, and its certificate.
   --backend-only    Deploy only backend jar files and restart services.
   --config-only     Deploy only systemd and nginx config files.
   --with-config     Deploy frontend, backend, systemd, and nginx config files.
@@ -27,6 +30,7 @@ Environment:
   REMOTE=root@119.45.58.43
   REMOTE_RELEASE_DIR=/tmp/alipay-release
   PACKAGE_PATH=/tmp/alipay-release.tar.gz
+  SSH_IDENTITY=/path/to/private-key.pem
 EOF
 }
 
@@ -37,6 +41,12 @@ while [ "$#" -gt 0 ]; do
       ;;
     --frontend-only)
       MODE="frontend"
+      ;;
+    --app-only)
+      MODE="app"
+      ;;
+    --app-with-config)
+      MODE="app_config"
       ;;
     --backend-only)
       MODE="backend"
@@ -64,16 +74,42 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
-  sh "$ROOT_DIR/scripts/build-production.sh"
+  case "$MODE" in
+    app|app_config) sh "$ROOT_DIR/scripts/build-miniapp-h5-production.sh" ;;
+    *) sh "$ROOT_DIR/scripts/build-production.sh" ;;
+  esac
 elif [ ! -d "$DIST_DIR" ]; then
   echo "Missing $DIST_DIR. Run without --skip-build first." >&2
   exit 1
 fi
 
-tar -czf "$PACKAGE_PATH" -C "$DIST_DIR" .
-scp "$PACKAGE_PATH" "$REMOTE:/tmp/alipay-release.tar.gz"
+PACKAGE_SOURCE="$DIST_DIR"
+APP_PACKAGE_DIR=""
+case "$MODE" in
+  app|app_config)
+    APP_PACKAGE_DIR=$(mktemp -d /tmp/alipay-app-release.XXXXXX)
+    mkdir -p "$APP_PACKAGE_DIR/frontend"
+    cp -R "$DIST_DIR/frontend/app" "$APP_PACKAGE_DIR/frontend/app"
+    cp -R "$DIST_DIR/deploy" "$APP_PACKAGE_DIR/deploy"
+    PACKAGE_SOURCE="$APP_PACKAGE_DIR"
+    ;;
+esac
 
-ssh "$REMOTE" sh -s -- "$MODE" "$REMOTE_RELEASE_DIR" <<'REMOTE_SCRIPT'
+tar -czf "$PACKAGE_PATH" -C "$PACKAGE_SOURCE" .
+[ -z "$APP_PACKAGE_DIR" ] || rm -rf "$APP_PACKAGE_DIR"
+if [ -n "$SSH_IDENTITY" ]; then
+  scp -i "$SSH_IDENTITY" -o IdentitiesOnly=yes "$PACKAGE_PATH" "$REMOTE:/tmp/alipay-release.tar.gz"
+else
+  scp "$PACKAGE_PATH" "$REMOTE:/tmp/alipay-release.tar.gz"
+fi
+
+if [ -n "$SSH_IDENTITY" ]; then
+  SSH_COMMAND="ssh -i $SSH_IDENTITY -o IdentitiesOnly=yes"
+else
+  SSH_COMMAND="ssh"
+fi
+
+$SSH_COMMAND "$REMOTE" sh -s -- "$MODE" "$REMOTE_RELEASE_DIR" <<'REMOTE_SCRIPT'
 set -eu
 
 MODE="$1"
@@ -98,6 +134,14 @@ deploy_frontend() {
   chown -R nginx:nginx /var/www/alipay/mall /var/www/alipay/merchant /var/www/alipay/admin
 }
 
+deploy_app() {
+  mkdir -p /var/www/alipay/app
+  tar -czf "/var/www/alipay/backups/app-$TS.tar.gz" -C /var/www/alipay/app . 2>/dev/null || true
+  rm -rf /var/www/alipay/app/*
+  cp -a "$RELEASE_DIR/frontend/app/." /var/www/alipay/app/
+  chown -R nginx:nginx /var/www/alipay/app
+}
+
 deploy_backend() {
   mkdir -p /opt/alipay
 
@@ -119,6 +163,13 @@ deploy_config() {
   cp "$RELEASE_DIR/deploy/systemd/"*.service /etc/systemd/system/
   systemctl daemon-reload
 
+  if [ -d "$RELEASE_DIR/deploy/ssl/app.linsy.online" ]; then
+    mkdir -p /etc/nginx/ssl/app.linsy.online
+    cp "$RELEASE_DIR/deploy/ssl/app.linsy.online/app.linsy.online_bundle.crt" /etc/nginx/ssl/app.linsy.online/
+    cp "$RELEASE_DIR/deploy/ssl/app.linsy.online/app.linsy.online.key" /etc/nginx/ssl/app.linsy.online/
+    chmod 600 /etc/nginx/ssl/app.linsy.online/app.linsy.online.key
+  fi
+
   if [ -f /etc/nginx/conf.d/alipay.conf ]; then
     cp /etc/nginx/conf.d/alipay.conf "/var/www/alipay/backups/nginx-alipay-$TS.conf"
   fi
@@ -130,15 +181,24 @@ deploy_config() {
 case "$MODE" in
   all)
     deploy_frontend
+    deploy_app
     deploy_backend
     ;;
   all_config)
     deploy_frontend
+    deploy_app
     deploy_backend
     deploy_config
     ;;
   frontend)
     deploy_frontend
+    ;;
+  app)
+    deploy_app
+    ;;
+  app_config)
+    deploy_app
+    deploy_config
     ;;
   backend)
     deploy_backend
@@ -153,8 +213,15 @@ case "$MODE" in
 esac
 
 systemctl is-active nginx
-systemctl is-active payment-gateway-api merchant-api mall-api
+case "$MODE" in
+  backend|all|all_config)
+    systemctl is-active payment-gateway-api merchant-api mall-api
+    ;;
+esac
 curl -fsS -I https://mall.linsy.online >/dev/null
+if [ "$MODE" = "app" ] || [ "$MODE" = "app_config" ] || [ "$MODE" = "all_config" ]; then
+  curl -fsS -I https://app.linsy.online >/dev/null
+fi
 curl -fsS -I https://merchant.linsy.online >/dev/null
 curl -fsS -I https://admin.linsy.online >/dev/null
 curl -fsS https://api.linsy.online/api/mall/catalog/categories >/dev/null

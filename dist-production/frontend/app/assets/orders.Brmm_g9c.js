@@ -1,0 +1,1 @@
+import{r}from"./_plugin-vue_export-helper.DQ3KkGuS.js";function t(){return r({url:"/api/mall/product-orders",auth:!0})}function o(t){return r({url:`/api/mall/product-orders/${encodeURIComponent(t)}`,auth:!0})}function u(t){return r({url:"/api/mall/product-orders",method:"POST",data:t,auth:!0})}export{o as a,u as c,t as f};
