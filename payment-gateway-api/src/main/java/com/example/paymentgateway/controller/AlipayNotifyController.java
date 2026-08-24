@@ -3,6 +3,7 @@ package com.example.paymentgateway.controller;
 import com.example.paymentgateway.service.AlipayGatewayService;
 import org.springframework.http.MediaType;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,12 +21,16 @@ public class AlipayNotifyController {
     }
 
     @PostMapping(
-            value = {"/api/gateway/alipay/notify", "/api/gateway/notify/alipay"},
+            value = {"/api/gateway/alipay/notify", "/api/gateway/notify/alipay", "/api/gateway/zhenbaoge/notify"},
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
             produces = MediaType.TEXT_PLAIN_VALUE
     )
-    public String notify(@RequestParam MultiValueMap<String, String> form) {
-        boolean success = alipayGatewayService.handleNotify(firstValueMap(form));
+    public String notify(
+            @RequestHeader(value = "timeStamp", required = false) String timestamp,
+            @RequestHeader(value = "visitAuth", required = false) String visitAuth,
+            @RequestParam MultiValueMap<String, String> form
+    ) {
+        boolean success = alipayGatewayService.handleNotify(firstValueMap(form), timestamp, visitAuth);
         return success ? "success" : "fail";
     }
 

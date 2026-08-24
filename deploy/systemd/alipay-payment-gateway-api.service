@@ -1,0 +1,17 @@
+[Unit]
+Description=Alipay Payment Gateway API
+After=network.target mysqld.service
+Wants=mysqld.service
+
+[Service]
+User=alipay
+WorkingDirectory=/opt/alipay/runtime/payment-gateway-api
+EnvironmentFile=/etc/alipay/common.env
+Environment=PAYMENT_GATEWAY_PORT=8090
+ExecStart=/bin/sh -c 'export SPRING_DATASOURCE_URL="$GATEWAY_DATASOURCE_URL"; export SPRING_DATASOURCE_USERNAME="$GATEWAY_DATASOURCE_USERNAME"; export SPRING_DATASOURCE_PASSWORD="$GATEWAY_DATASOURCE_PASSWORD"; exec /usr/lib/jvm/java-17-openjdk-17.0.19.0.10-1.tl3.x86_64/bin/java -Xms64m -Xmx192m -Xss256k -XX:+UseSerialGC -jar /opt/alipay/apps/payment-gateway-api.jar'
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=Chengxinkeji Gateway Pay Test API
+After=network.target chengxinkeji-payment-gateway-api.service
+Requires=chengxinkeji-payment-gateway-api.service
+
+[Service]
+User=alipaygw
+Group=alipaygw
+WorkingDirectory=/opt/alipay-gateway-chengxinkeji/runtime/gateway-pay-test-api
+EnvironmentFile=/etc/alipay-gateway-chengxinkeji/testpay.env
+ExecStart=/usr/bin/java -Xms32m -Xmx128m -Xss256k -XX:+UseSerialGC -jar /opt/alipay-gateway-chengxinkeji/apps/gateway-pay-test-api.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

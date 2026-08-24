@@ -34,6 +34,16 @@ VITE_API_BASE_URL="https://api.linsy.online" npm run build
 mkdir -p "$DIST_DIR/frontend/admin"
 cp -R dist/. "$DIST_DIR/frontend/admin/"
 
+cd "$ROOT_DIR/gateway-client-admin"
+VITE_API_BASE_URL="https://api.linsy.online" npm run build
+mkdir -p "$DIST_DIR/frontend/client"
+cp -R dist/. "$DIST_DIR/frontend/client/"
+
+cd "$ROOT_DIR/gateway-pay-test"
+VITE_GATEWAY_BASE_URL="https://api.linsy.online" npm run build
+mkdir -p "$DIST_DIR/frontend/testpay"
+cp -R dist/. "$DIST_DIR/frontend/testpay/"
+
 DIST_DIR="$DIST_DIR" sh "$ROOT_DIR/scripts/build-miniapp-h5-production.sh"
 
 echo "Production artifacts written to $DIST_DIR"

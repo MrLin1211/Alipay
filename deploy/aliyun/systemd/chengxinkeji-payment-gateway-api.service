@@ -1,0 +1,19 @@
+[Unit]
+Description=Chengxinkeji Payment Gateway API
+After=network.target chengxinkeji-payment-gateway-mysql.service
+Requires=chengxinkeji-payment-gateway-mysql.service
+
+[Service]
+User=alipaygw
+Group=alipaygw
+WorkingDirectory=/opt/alipay-gateway-chengxinkeji/runtime/payment-gateway-api
+EnvironmentFile=/etc/alipay-gateway-chengxinkeji/gateway.env
+ExecStart=/usr/bin/java -Xms64m -Xmx192m -Xss256k -XX:+UseSerialGC -jar /opt/alipay-gateway-chengxinkeji/apps/payment-gateway-api.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

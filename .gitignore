@@ -3,6 +3,10 @@ backend/target/
 payment-gateway/target/
 payment-gateway-admin/node_modules/
 payment-gateway-admin/dist/
+gateway-client-admin/node_modules/
+gateway-client-admin/dist/
+gateway-pay-test/node_modules/
+gateway-pay-test/dist/
 backend/data/
 frontend/node_modules/
 frontend/dist/
@@ -15,3 +19,5 @@ admin/dist/
 ios/
 /root.pem
 /ssl/app.linsy.online_nginx/
+/ssl/client.linsy.online_nginx/
+/ssl/testpay.linsy.online_nginx/

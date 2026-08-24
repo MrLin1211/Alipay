@@ -2,7 +2,7 @@
   <main class="login-page">
     <el-card class="login-card" shadow="never">
       <h1>管理后台</h1>
-      <p>登录后管理支付宝渠道配置和接入应用</p>
+      <p>登录后管理支付通道、接入应用、支付订单和回调记录</p>
       <el-form :model="form" label-position="top" @submit.prevent="submit">
         <el-form-item label="账号">
           <el-input v-model="form.username" autocomplete="username" />

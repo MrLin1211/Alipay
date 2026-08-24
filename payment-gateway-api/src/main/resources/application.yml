@@ -12,23 +12,23 @@ spring:
     username: ${GATEWAY_DATASOURCE_USERNAME:alipay_user}
     password: ${GATEWAY_DATASOURCE_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
-  servlet:
-    multipart:
-      max-file-size: 5MB
-      max-request-size: 6MB
 
 gateway:
   admin:
     default-username: ${GATEWAY_ADMIN_USERNAME:admin}
     default-password: ${GATEWAY_ADMIN_PASSWORD:admin123456}
+  client:
+    default-username: ${GATEWAY_CLIENT_USERNAME:client}
+    default-password: ${GATEWAY_CLIENT_PASSWORD:client123456}
+    default-name: ${GATEWAY_CLIENT_NAME:演示接入方}
   demo-app:
     enabled: ${GATEWAY_DEMO_APP_ENABLED:true}
     app-id: ${GATEWAY_DEMO_APP_ID:biz-demo}
     app-secret: ${GATEWAY_DEMO_APP_SECRET:demo-secret-change-me}
-
-mallhome:
-  datasource:
-    url: ${MALLHOME_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/alipay_pay?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
-    username: ${MALLHOME_DATASOURCE_USERNAME:alipay_user}
-    password: ${MALLHOME_DATASOURCE_PASSWORD:}
-    driver-class-name: ${MALLHOME_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
+  zhenbaoge:
+    host: ${ZHENBAOGE_HOST:https://pay.zhenbaoge.com}
+    external-id: ${ZHENBAOGE_EXTERNAL_ID:}
+    md5-key: ${ZHENBAOGE_MD5_KEY:}
+    aes-key: ${ZHENBAOGE_AES_KEY:}
+    notify-url: ${ZHENBAOGE_NOTIFY_URL:}
+    enabled: ${ZHENBAOGE_ENABLED:true}

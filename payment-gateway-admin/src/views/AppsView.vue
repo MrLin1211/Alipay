@@ -91,6 +91,12 @@
         <el-descriptions-item label="AppSecret">
           <span class="mono">{{ createdCredential.appSecret }}</span>
         </el-descriptions-item>
+        <el-descriptions-item label="接入方后台账号">
+          <span class="mono">{{ createdCredential.clientUsername }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="接入方后台密码">
+          <span class="mono">{{ createdCredential.clientPassword }}</span>
+        </el-descriptions-item>
       </el-descriptions>
       <template #footer>
         <el-button @click="copyCredential">复制</el-button>
@@ -135,7 +141,9 @@ const form = reactive({
 const createdCredential = reactive({
   appName: "",
   appId: "",
-  appSecret: ""
+  appSecret: "",
+  clientUsername: "",
+  clientPassword: ""
 });
 
 onMounted(() => {
@@ -231,7 +239,7 @@ async function submit() {
 }
 
 async function copyCredential() {
-  const text = `AppId=${createdCredential.appId}\nAppSecret=${createdCredential.appSecret}`;
+  const text = `AppId=${createdCredential.appId}\nAppSecret=${createdCredential.appSecret}\nClientUsername=${createdCredential.clientUsername}\nClientPassword=${createdCredential.clientPassword}`;
   try {
     await navigator.clipboard.writeText(text);
     ElMessage.success("已复制");

@@ -1,0 +1,17 @@
+[Unit]
+Description=Alipay Gateway Pay Test API
+After=network.target alipay-payment-gateway-api.service
+Wants=alipay-payment-gateway-api.service
+
+[Service]
+User=alipay
+WorkingDirectory=/opt/alipay/runtime/gateway-pay-test-api
+EnvironmentFile=/etc/alipay/testpay.env
+Environment=TESTPAY_SERVER_PORT=8092
+ExecStart=/usr/lib/jvm/java-17-openjdk-17.0.19.0.10-1.tl3.x86_64/bin/java -Xms32m -Xmx128m -Xss256k -XX:+UseSerialGC -jar /opt/alipay/apps/gateway-pay-test-api.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -16,7 +16,7 @@
             <el-option v-for="item in orderStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="支付宝交易号">
+        <el-form-item label="第三方交易号">
           <el-input v-model="filters.alipayTradeNo" clearable />
         </el-form-item>
         <el-form-item label="创建时间">
@@ -43,8 +43,8 @@
         <el-table-column prop="gateway_order_no" label="网关订单号" min-width="190" />
         <el-table-column prop="merchant_order_no" label="商户订单号" min-width="170" />
         <el-table-column prop="app_id" label="AppId" min-width="120" />
-        <el-table-column prop="customer_display_name" label="用户昵称" min-width="120">
-          <template #default="{ row }">{{ row.customer_display_name || "-" }}</template>
+        <el-table-column prop="app_name" label="应用名称" min-width="140">
+          <template #default="{ row }">{{ row.app_name || "-" }}</template>
         </el-table-column>
         <el-table-column prop="subject" label="标题" min-width="140" />
         <el-table-column prop="total_amount" label="金额" width="100" />
@@ -56,7 +56,8 @@
         <el-table-column label="交易状态" width="120">
           <template #default="{ row }">{{ labelOf(tradeStatusOptions, row.trade_status) }}</template>
         </el-table-column>
-        <el-table-column prop="alipay_trade_no" label="支付宝交易号" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="platform_trade_no" label="平台单号" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="alipay_trade_no" label="第三方交易号" min-width="180" show-overflow-tooltip />
         <el-table-column prop="created_at" label="创建时间" min-width="170" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
@@ -81,16 +82,17 @@
         <el-descriptions-item label="网关订单号">{{ detail.gateway_order_no }}</el-descriptions-item>
         <el-descriptions-item label="商户订单号">{{ detail.merchant_order_no }}</el-descriptions-item>
         <el-descriptions-item label="AppId">{{ detail.app_id }}</el-descriptions-item>
-        <el-descriptions-item label="用户昵称">{{ detail.customer_display_name || "-" }}</el-descriptions-item>
+        <el-descriptions-item label="应用名称">{{ detail.app_name || "-" }}</el-descriptions-item>
         <el-descriptions-item label="金额">{{ detail.total_amount }}</el-descriptions-item>
         <el-descriptions-item label="订单状态">{{ labelOf(orderStatusOptions, detail.status) }}</el-descriptions-item>
         <el-descriptions-item label="交易状态">{{ labelOf(tradeStatusOptions, detail.trade_status) }}</el-descriptions-item>
-        <el-descriptions-item label="支付宝交易号">{{ detail.alipay_trade_no || "-" }}</el-descriptions-item>
+        <el-descriptions-item label="平台单号">{{ detail.platform_trade_no || "-" }}</el-descriptions-item>
+        <el-descriptions-item label="第三方交易号">{{ detail.alipay_trade_no || "-" }}</el-descriptions-item>
         <el-descriptions-item label="更新时间">{{ detail.updated_at }}</el-descriptions-item>
       </el-descriptions>
       <h3>内部请求参数</h3>
       <pre>{{ formatJson(detail?.request_payload) }}</pre>
-      <h3>支付宝请求参数</h3>
+      <h3>平台请求/响应参数</h3>
       <pre>{{ formatJson(detail?.channel_response) }}</pre>
       <h3>最近通知内容</h3>
       <pre>{{ formatJson(detail?.notify_payload) }}</pre>

@@ -17,7 +17,7 @@ Usage:
 
 Options:
   --all             Build and deploy frontend and backend. Default.
-  --frontend-only   Deploy only mall, merchant, and admin frontend files.
+  --frontend-only   Deploy only mall, merchant, admin, client, and testpay frontend files.
   --app-only        Build and deploy only the mall-miniapp H5 frontend.
   --app-with-config Build and deploy mall-miniapp H5, nginx config, and its certificate.
   --backend-only    Deploy only backend jar files and restart services.
@@ -121,17 +121,21 @@ rm -rf "$RELEASE_DIR"/*
 tar -xzf /tmp/alipay-release.tar.gz -C "$RELEASE_DIR"
 
 deploy_frontend() {
-  mkdir -p /var/www/alipay/mall /var/www/alipay/merchant /var/www/alipay/admin
+  mkdir -p /var/www/alipay/mall /var/www/alipay/merchant /var/www/alipay/admin /var/www/alipay/client /var/www/alipay/testpay
 
   tar -czf "/var/www/alipay/backups/mall-$TS.tar.gz" -C /var/www/alipay/mall . 2>/dev/null || true
   tar -czf "/var/www/alipay/backups/merchant-$TS.tar.gz" -C /var/www/alipay/merchant . 2>/dev/null || true
   tar -czf "/var/www/alipay/backups/admin-$TS.tar.gz" -C /var/www/alipay/admin . 2>/dev/null || true
+  tar -czf "/var/www/alipay/backups/client-$TS.tar.gz" -C /var/www/alipay/client . 2>/dev/null || true
+  tar -czf "/var/www/alipay/backups/testpay-$TS.tar.gz" -C /var/www/alipay/testpay . 2>/dev/null || true
 
-  rm -rf /var/www/alipay/mall/* /var/www/alipay/merchant/* /var/www/alipay/admin/*
+  rm -rf /var/www/alipay/mall/* /var/www/alipay/merchant/* /var/www/alipay/admin/* /var/www/alipay/client/* /var/www/alipay/testpay/*
   cp -a "$RELEASE_DIR/frontend/mall/." /var/www/alipay/mall/
   cp -a "$RELEASE_DIR/frontend/merchant/." /var/www/alipay/merchant/
   cp -a "$RELEASE_DIR/frontend/admin/." /var/www/alipay/admin/
-  chown -R nginx:nginx /var/www/alipay/mall /var/www/alipay/merchant /var/www/alipay/admin
+  cp -a "$RELEASE_DIR/frontend/client/." /var/www/alipay/client/
+  cp -a "$RELEASE_DIR/frontend/testpay/." /var/www/alipay/testpay/
+  chown -R nginx:nginx /var/www/alipay/mall /var/www/alipay/merchant /var/www/alipay/admin /var/www/alipay/client /var/www/alipay/testpay
 }
 
 deploy_app() {
@@ -168,6 +172,20 @@ deploy_config() {
     cp "$RELEASE_DIR/deploy/ssl/app.linsy.online/app.linsy.online_bundle.crt" /etc/nginx/ssl/app.linsy.online/
     cp "$RELEASE_DIR/deploy/ssl/app.linsy.online/app.linsy.online.key" /etc/nginx/ssl/app.linsy.online/
     chmod 600 /etc/nginx/ssl/app.linsy.online/app.linsy.online.key
+  fi
+
+  if [ -d "$RELEASE_DIR/deploy/ssl/client.linsy.online_nginx" ]; then
+    mkdir -p /etc/nginx/ssl/client.linsy.online_nginx
+    cp "$RELEASE_DIR/deploy/ssl/client.linsy.online_nginx/client.linsy.online_bundle.crt" /etc/nginx/ssl/client.linsy.online_nginx/
+    cp "$RELEASE_DIR/deploy/ssl/client.linsy.online_nginx/client.linsy.online.key" /etc/nginx/ssl/client.linsy.online_nginx/
+    chmod 600 /etc/nginx/ssl/client.linsy.online_nginx/client.linsy.online.key
+  fi
+
+  if [ -d "$RELEASE_DIR/deploy/ssl/testpay.linsy.online_nginx" ]; then
+    mkdir -p /etc/nginx/ssl/testpay.linsy.online_nginx
+    cp "$RELEASE_DIR/deploy/ssl/testpay.linsy.online_nginx/testpay.linsy.online_bundle.crt" /etc/nginx/ssl/testpay.linsy.online_nginx/
+    cp "$RELEASE_DIR/deploy/ssl/testpay.linsy.online_nginx/testpay.linsy.online.key" /etc/nginx/ssl/testpay.linsy.online_nginx/
+    chmod 600 /etc/nginx/ssl/testpay.linsy.online_nginx/testpay.linsy.online.key
   fi
 
   if [ -f /etc/nginx/conf.d/alipay.conf ]; then
@@ -224,6 +242,8 @@ if [ "$MODE" = "app" ] || [ "$MODE" = "app_config" ] || [ "$MODE" = "all_config"
 fi
 curl -fsS -I https://merchant.linsy.online >/dev/null
 curl -fsS -I https://admin.linsy.online >/dev/null
+curl -fsS -I https://client.linsy.online >/dev/null
+curl -fsS -I https://testpay.linsy.online >/dev/null
 curl -fsS https://api.linsy.online/api/mall/catalog/categories >/dev/null
 
 echo "Deploy completed: mode=$MODE ts=$TS"

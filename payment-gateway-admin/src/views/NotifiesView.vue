@@ -8,6 +8,9 @@
         <el-form-item label="商户订单号">
           <el-input v-model="filters.merchantOrderNo" clearable />
         </el-form-item>
+        <el-form-item label="平台单号">
+          <el-input v-model="filters.platformTradeNo" clearable />
+        </el-form-item>
         <el-form-item label="交易状态">
           <el-select v-model="filters.tradeStatus" clearable placeholder="全部状态" class="status-select">
             <el-option v-for="item in tradeStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -47,7 +50,8 @@
       <el-table v-loading="loading" :data="records" border>
         <el-table-column prop="gateway_order_no" label="网关订单号" min-width="190" />
         <el-table-column prop="merchant_order_no" label="商户订单号" min-width="170" />
-        <el-table-column prop="channel_trade_no" label="支付宝交易号" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="platform_trade_no" label="平台单号" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="channel_trade_no" label="第三方交易号" min-width="180" show-overflow-tooltip />
         <el-table-column label="交易状态" width="120">
           <template #default="{ row }">{{ labelOf(tradeStatusOptions, row.trade_status) }}</template>
         </el-table-column>
@@ -85,7 +89,8 @@
       <el-descriptions v-if="detail" :column="descriptionColumns" border>
         <el-descriptions-item label="网关订单号">{{ detail.gateway_order_no || "-" }}</el-descriptions-item>
         <el-descriptions-item label="商户订单号">{{ detail.merchant_order_no || "-" }}</el-descriptions-item>
-        <el-descriptions-item label="支付宝交易号">{{ detail.channel_trade_no || "-" }}</el-descriptions-item>
+        <el-descriptions-item label="平台单号">{{ detail.platform_trade_no || "-" }}</el-descriptions-item>
+        <el-descriptions-item label="第三方交易号">{{ detail.channel_trade_no || "-" }}</el-descriptions-item>
         <el-descriptions-item label="交易状态">{{ labelOf(tradeStatusOptions, detail.trade_status) }}</el-descriptions-item>
         <el-descriptions-item label="验签结果">{{ detail.verified ? "通过" : "失败" }}</el-descriptions-item>
         <el-descriptions-item label="处理结果">{{ labelOf(notifyResultOptions, detail.result) }}</el-descriptions-item>
@@ -112,6 +117,7 @@ const defaultTime = [
 const filters = reactive({
   gatewayOrderNo: "",
   merchantOrderNo: "",
+  platformTradeNo: "",
   tradeStatus: "",
   verified: "",
   result: "",
@@ -151,6 +157,7 @@ async function load() {
     const data = await fetchNotifies({
       gatewayOrderNo: filters.gatewayOrderNo || undefined,
       merchantOrderNo: filters.merchantOrderNo || undefined,
+      platformTradeNo: filters.platformTradeNo || undefined,
       tradeStatus: filters.tradeStatus || undefined,
       verified: filters.verified === "" ? undefined : filters.verified,
       result: filters.result || undefined,
@@ -177,6 +184,7 @@ function reset() {
   Object.assign(filters, {
     gatewayOrderNo: "",
     merchantOrderNo: "",
+    platformTradeNo: "",
     tradeStatus: "",
     verified: "",
     result: "",

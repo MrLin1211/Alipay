@@ -56,6 +56,8 @@ public class BusinessNotifyService {
         payload.put("channel", order.get("channel"));
         payload.put("status", order.get("status"));
         payload.put("tradeStatus", order.get("trade_status"));
+        payload.put("platformTradeNo", order.get("platform_trade_no"));
+        payload.put("thirdTradeNo", order.get("alipay_trade_no"));
         payload.put("alipayTradeNo", order.get("alipay_trade_no"));
         payload.put("totalAmount", order.get("total_amount"));
         payload.put("paidAt", order.get("paid_at"));

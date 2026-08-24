@@ -1,0 +1,16 @@
+[Unit]
+Description=Chengxinkeji Payment Gateway Isolated MySQL
+After=network.target
+
+[Service]
+Type=simple
+User=alipaygw
+Group=alipaygw
+ExecStart=/www/server/mysql/bin/mysqld --defaults-file=/opt/alipay-gateway-chengxinkeji/mysql/my.cnf --user=alipaygw
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

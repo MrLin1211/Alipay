@@ -1,6 +1,6 @@
 # 生产环境打包和部署说明
 
-本文档按当前线上规则维护：四个前端域名只提供静态页面，所有接口统一走 `https://api.linsy.online`。
+本文档按当前线上规则维护：前端域名只提供静态页面，所有接口统一走 `https://api.linsy.online`。
 
 ## 1. 线上域名和服务
 
@@ -10,13 +10,15 @@
 | uni-app H5 商城 | `https://app.linsy.online` | `/var/www/alipay/app` |
 | 商家后台 | `https://merchant.linsy.online` | `/var/www/alipay/merchant` |
 | 管理后台 | `https://admin.linsy.online` | `/var/www/alipay/admin` |
+| 接入方支付后台 | `https://client.linsy.online` | `/var/www/alipay/client` |
+| 支付测试端 | `https://testpay.linsy.online` | `/var/www/alipay/testpay` |
 | 商城 API | `https://api.linsy.online/api/mall/**` | `127.0.0.1:8080` |
 | 商家 API | `https://api.linsy.online/api/merchant/**` | `127.0.0.1:8081` |
 | 管理后台 API | `https://api.linsy.online/api/admin/**` | `127.0.0.1:8081` |
 | 支付网关 API | `https://api.linsy.online/api/gateway/**` | `127.0.0.1:8090` |
 | 上传文件访问 | `https://api.linsy.online/uploads/**` | `/var/www/alipay/uploads` |
 
-不要在 `mall.linsy.online`、`app.linsy.online`、`merchant.linsy.online`、`admin.linsy.online` 下再配置 API 代理。前端生产构建时应写入 `https://api.linsy.online`。
+不要在 `mall.linsy.online`、`app.linsy.online`、`merchant.linsy.online`、`admin.linsy.online`、`client.linsy.online`、`testpay.linsy.online` 下再配置 API 代理。前端生产构建时应写入 `https://api.linsy.online`。
 
 ## 2. 日常上线流程
 
@@ -34,7 +36,7 @@ sh scripts/deploy-production.sh
 3. 上传到 `root@119.45.58.43:/tmp/alipay-release.tar.gz`。
 4. 在服务器解压到 `/tmp/alipay-release`。
 5. 备份旧前端和旧 jar。
-6. 替换三套前端和三个后端 jar。
+6. 替换前端静态文件和三个后端 jar。
 7. 重启 `payment-gateway-api`、`merchant-api`、`mall-api`。
 8. 执行基础线上验证。
 
@@ -109,14 +111,17 @@ dist-production/
 │   ├── mall/
 │   ├── app/
 │   ├── merchant/
-│   └── admin/
+│   ├── admin/
+│   ├── client/
+│   └── testpay/
 └── deploy/
 ```
 
-三个前端打包时都会注入：
+前端打包时会注入：
 
 ```text
 VITE_API_BASE_URL=https://api.linsy.online
+VITE_GATEWAY_BASE_URL=https://api.linsy.online
 ```
 
 ## 4. 手动上传和部署
@@ -158,16 +163,22 @@ mkdir -p /var/www/alipay/backups
 tar -czf /var/www/alipay/backups/mall-$TS.tar.gz -C /var/www/alipay/mall .
 tar -czf /var/www/alipay/backups/merchant-$TS.tar.gz -C /var/www/alipay/merchant .
 tar -czf /var/www/alipay/backups/admin-$TS.tar.gz -C /var/www/alipay/admin .
+tar -czf /var/www/alipay/backups/client-$TS.tar.gz -C /var/www/alipay/client .
+tar -czf /var/www/alipay/backups/testpay-$TS.tar.gz -C /var/www/alipay/testpay .
 
 rm -rf /var/www/alipay/mall/*
 rm -rf /var/www/alipay/merchant/*
 rm -rf /var/www/alipay/admin/*
+rm -rf /var/www/alipay/client/*
+rm -rf /var/www/alipay/testpay/*
 
 cp -a /tmp/alipay-release/frontend/mall/. /var/www/alipay/mall/
 cp -a /tmp/alipay-release/frontend/merchant/. /var/www/alipay/merchant/
 cp -a /tmp/alipay-release/frontend/admin/. /var/www/alipay/admin/
+cp -a /tmp/alipay-release/frontend/client/. /var/www/alipay/client/
+cp -a /tmp/alipay-release/frontend/testpay/. /var/www/alipay/testpay/
 
-chown -R nginx:nginx /var/www/alipay/mall /var/www/alipay/merchant /var/www/alipay/admin
+chown -R nginx:nginx /var/www/alipay/mall /var/www/alipay/merchant /var/www/alipay/admin /var/www/alipay/client /var/www/alipay/testpay
 ```
 
 ### 4.2 只部署后端
@@ -258,10 +269,13 @@ vim /etc/alipay/alipay.env
 证书目录按 `deploy/nginx/alipay.conf` 中的路径准备：
 
 ```text
-/etc/nginx/ssl/mall.linsy.online/
-/etc/nginx/ssl/merchant.linsy.online/
-/etc/nginx/ssl/admin.linsy.online/
-/etc/nginx/ssl/api.linsy.online/
+/etc/nginx/ssl/app.linsy.online/
+/etc/nginx/ssl/mall.linsy.online_nginx/
+/etc/nginx/ssl/merchant.linsy.online_nginx/
+/etc/nginx/ssl/admin.linsy.online_nginx/
+/etc/nginx/ssl/client.linsy.online_nginx/
+/etc/nginx/ssl/testpay.linsy.online_nginx/
+/etc/nginx/ssl/api.linsy.online_nginx/
 ```
 
 每个目录需要：
@@ -292,6 +306,8 @@ systemctl start mall-api
 curl -I https://mall.linsy.online
 curl -I https://merchant.linsy.online
 curl -I https://admin.linsy.online
+curl -I https://client.linsy.online
+curl -I https://testpay.linsy.online
 ```
 
 API：

@@ -6,31 +6,24 @@
           <el-form-item label="配置名称">
             <el-input v-model="form.configName" />
           </el-form-item>
-          <el-form-item label="支付宝 AppId">
-            <el-input v-model="form.appId" />
+          <el-form-item label="平台网关">
+            <el-input v-model="form.host" />
           </el-form-item>
-          <el-form-item label="支付宝网关">
-            <el-input v-model="form.gatewayUrl" />
-          </el-form-item>
-          <el-form-item label="签名类型">
-            <el-input v-model="form.signType" disabled />
+          <el-form-item label="平台商户ID">
+            <el-input v-model="form.externalId" />
           </el-form-item>
           <el-form-item label="异步通知地址">
             <el-input v-model="form.notifyUrl" />
           </el-form-item>
-          <el-form-item label="同步跳转地址">
-            <el-input v-model="form.returnUrl" />
-          </el-form-item>
         </div>
-        <el-form-item label="应用私钥">
-          <el-input v-model="form.appPrivateKey" type="textarea" :rows="6" placeholder="保存时会覆盖原私钥；留空表示不修改" />
+        <el-form-item label="MD5密钥">
+          <el-input v-model="form.md5Key" type="password" show-password placeholder="保存时会覆盖原密钥；留空表示不修改" />
         </el-form-item>
-        <el-form-item label="支付宝公钥">
-          <el-input v-model="form.alipayPublicKey" type="textarea" :rows="6" placeholder="保存时会覆盖原公钥；留空表示不修改" />
+        <el-form-item label="AES密钥">
+          <el-input v-model="form.aesKey" type="password" show-password placeholder="保存时会覆盖原密钥；留空表示不修改" />
         </el-form-item>
         <div class="actions-row">
           <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" />
-          <el-switch v-model="form.sandbox" active-text="沙箱" inactive-text="正式" />
           <el-button type="primary" :loading="saving" @click="save">保存配置</el-button>
           <el-button @click="load">刷新</el-button>
         </div>
@@ -47,15 +40,12 @@ import { fetchAlipayConfig, saveAlipayConfig } from "../api/gatewayAdminApi";
 const saving = ref(false);
 const form = reactive({
   configName: "default",
-  appId: "",
-  gatewayUrl: "https://openapi.alipay.com/gateway.do",
-  appPrivateKey: "",
-  alipayPublicKey: "",
+  host: "https://pay.zhenbaoge.com",
+  externalId: "",
+  md5Key: "",
+  aesKey: "",
   notifyUrl: "",
-  returnUrl: "",
-  signType: "RSA2",
-  enabled: true,
-  sandbox: false
+  enabled: true
 });
 
 onMounted(load);
@@ -65,15 +55,12 @@ async function load() {
     const data = await fetchAlipayConfig();
     Object.assign(form, {
       configName: data.config_name || "default",
-      appId: data.app_id || "",
-      gatewayUrl: data.gateway_url || "https://openapi.alipay.com/gateway.do",
-      appPrivateKey: "",
-      alipayPublicKey: "",
+      host: data.host || "https://pay.zhenbaoge.com",
+      externalId: data.external_id || "",
+      md5Key: "",
+      aesKey: "",
       notifyUrl: data.notify_url || "",
-      returnUrl: data.return_url || "",
-      signType: data.sign_type || "RSA2",
-      enabled: Boolean(data.enabled),
-      sandbox: Boolean(data.sandbox)
+      enabled: Boolean(data.enabled)
     });
   } catch (error) {
     ElMessage.error(error.message || "加载配置失败");
@@ -85,18 +72,15 @@ async function save() {
   try {
     await saveAlipayConfig({
       configName: form.configName,
-      appId: form.appId,
-      gatewayUrl: form.gatewayUrl,
-      appPrivateKey: form.appPrivateKey,
-      alipayPublicKey: form.alipayPublicKey,
+      host: form.host,
+      externalId: form.externalId,
+      md5Key: form.md5Key,
+      aesKey: form.aesKey,
       notifyUrl: form.notifyUrl,
-      returnUrl: form.returnUrl,
-      signType: form.signType,
-      enabled: form.enabled,
-      sandbox: form.sandbox
+      enabled: form.enabled
     });
-    form.appPrivateKey = "";
-    form.alipayPublicKey = "";
+    form.md5Key = "";
+    form.aesKey = "";
     ElMessage.success("配置已保存");
     await load();
   } catch (error) {

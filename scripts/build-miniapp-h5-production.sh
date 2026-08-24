@@ -7,6 +7,8 @@ HBUILDERX_DIR="${HBUILDERX_DIR:-/Applications/HBuilderX.app/Contents/HBuilderX}"
 UNI_CLI_DIR="$HBUILDERX_DIR/plugins/uniapp-cli-vite"
 NODE_BIN="$HBUILDERX_DIR/plugins/node/node"
 APP_SSL_DIR="$ROOT_DIR/ssl/app.linsy.online_nginx"
+CLIENT_SSL_DIR="$ROOT_DIR/ssl/client.linsy.online_nginx"
+TESTPAY_SSL_DIR="$ROOT_DIR/ssl/testpay.linsy.online_nginx"
 
 if [ ! -x "$NODE_BIN" ] || [ ! -f "$UNI_CLI_DIR/vite.config.js" ]; then
   echo "HBuilderX uni-app compiler not found: $HBUILDERX_DIR" >&2
@@ -14,6 +16,14 @@ if [ ! -x "$NODE_BIN" ] || [ ! -f "$UNI_CLI_DIR/vite.config.js" ]; then
 fi
 if [ ! -f "$APP_SSL_DIR/app.linsy.online_bundle.crt" ] || [ ! -f "$APP_SSL_DIR/app.linsy.online.key" ]; then
   echo "Missing app.linsy.online certificate or private key in $APP_SSL_DIR" >&2
+  exit 1
+fi
+if [ ! -f "$CLIENT_SSL_DIR/client.linsy.online_bundle.crt" ] || [ ! -f "$CLIENT_SSL_DIR/client.linsy.online.key" ]; then
+  echo "Missing client.linsy.online certificate or private key in $CLIENT_SSL_DIR" >&2
+  exit 1
+fi
+if [ ! -f "$TESTPAY_SSL_DIR/testpay.linsy.online_bundle.crt" ] || [ ! -f "$TESTPAY_SSL_DIR/testpay.linsy.online.key" ]; then
+  echo "Missing testpay.linsy.online certificate or private key in $TESTPAY_SSL_DIR" >&2
   exit 1
 fi
 
@@ -43,5 +53,15 @@ mkdir -p "$DIST_DIR/deploy/ssl/app.linsy.online"
 cp "$APP_SSL_DIR/app.linsy.online_bundle.crt" "$DIST_DIR/deploy/ssl/app.linsy.online/"
 cp "$APP_SSL_DIR/app.linsy.online.key" "$DIST_DIR/deploy/ssl/app.linsy.online/"
 chmod 600 "$DIST_DIR/deploy/ssl/app.linsy.online/app.linsy.online.key"
+
+mkdir -p "$DIST_DIR/deploy/ssl/client.linsy.online_nginx"
+cp "$CLIENT_SSL_DIR/client.linsy.online_bundle.crt" "$DIST_DIR/deploy/ssl/client.linsy.online_nginx/"
+cp "$CLIENT_SSL_DIR/client.linsy.online.key" "$DIST_DIR/deploy/ssl/client.linsy.online_nginx/"
+chmod 600 "$DIST_DIR/deploy/ssl/client.linsy.online_nginx/client.linsy.online.key"
+
+mkdir -p "$DIST_DIR/deploy/ssl/testpay.linsy.online_nginx"
+cp "$TESTPAY_SSL_DIR/testpay.linsy.online_bundle.crt" "$DIST_DIR/deploy/ssl/testpay.linsy.online_nginx/"
+cp "$TESTPAY_SSL_DIR/testpay.linsy.online.key" "$DIST_DIR/deploy/ssl/testpay.linsy.online_nginx/"
+chmod 600 "$DIST_DIR/deploy/ssl/testpay.linsy.online_nginx/testpay.linsy.online.key"
 
 echo "app.linsy.online H5 artifacts written to $DIST_DIR/frontend/app"

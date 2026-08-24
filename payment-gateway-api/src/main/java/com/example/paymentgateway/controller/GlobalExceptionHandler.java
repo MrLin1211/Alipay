@@ -2,12 +2,11 @@ package com.example.paymentgateway.controller;
 
 import com.example.paymentgateway.domain.ApiResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
-import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
@@ -24,15 +23,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ResponseStatusException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleStatus(ResponseStatusException exception) {
-        return ApiResponse.fail(exception.getStatusCode().value(), exception.getReason());
-    }
-
-    @ExceptionHandler({MaxUploadSizeExceededException.class, MultipartException.class})
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleUploadSize(Exception exception) {
-        return ApiResponse.fail(400, "图片不能超过5MB，请压缩后重新上传");
+    public ResponseEntity<ApiResponse<Void>> handleStatus(ResponseStatusException exception) {
+        return ResponseEntity.status(exception.getStatusCode())
+                .body(ApiResponse.fail(exception.getStatusCode().value(), exception.getReason()));
     }
 
     @ExceptionHandler(Exception.class)
